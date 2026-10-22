@@ -1,0 +1,320 @@
+{
+    "protocol_id": "blackbox-ems-demo",
+    "version": "1.0.0",
+    "disclaimer": "Hackathon demonstration only. Not for clinical use. Doses follow the NASEMSO National Model EMS Clinical Guidelines; local protocols and medical direction take precedence.",
+    "sources": [
+      {
+        "id": "nasemso_v3",
+        "title": "National Model EMS Clinical Guidelines, Version 3.0",
+        "publisher": "National Association of State EMS Officials (NASEMSO) Medical Directors Council",
+        "date": "2022-03",
+        "url": "https://nasemso.org/wp-content/uploads/National-Model-EMS-Clinical-Guidelines_2022.pdf"
+      }
+    ],
+    "pediatric_rule": {
+      "description": "Use weight-based (per-kg) dosing when the patient is under the age or weight cut-off; the per-kg dose is never allowed to exceed the adult maximum.",
+      "age_lt_years": 12,
+      "weight_lt_kg": 40
+    },
+    "drugs": {
+      "adrenaline": {
+        "generic_name": "Epinephrine (adrenaline)",
+        "aliases": ["epinephrine", "epi", "adrenalin", "adrenaline", "epipen"],
+        "drug_class": "sympathomimetic",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [
+          {"label": "1 mg/mL (1:1,000)", "mg_per_ml": 1.0},
+          {"label": "0.1 mg/mL (1:10,000)", "mg_per_ml": 0.1}
+        ],
+        "indications": {
+          "cardiac_arrest": {
+            "routes": ["IV", "IO"],
+            "adult": {"dose_min": 1, "dose_max": 1, "max_total": null, "max_doses": null, "min_repeat_interval_min": 3},
+            "pediatric": {"per_kg": 0.01, "max_single": 1, "max_total": null, "max_doses": null, "min_repeat_interval_min": 3},
+            "note": "Use 0.1 mg/mL. Repeat every 3-5 minutes.",
+            "source": "nasemso_v3"
+          },
+          "anaphylaxis": {
+            "routes": ["IM"],
+            "adult": {"dose_min": 0.3, "dose_max": 0.5, "max_total": null, "max_doses": 3, "min_repeat_interval_min": 5},
+            "pediatric": {"per_kg": 0.01, "max_single": 0.3, "max_total": null, "max_doses": 3, "min_repeat_interval_min": 5},
+            "note": "Use 1 mg/mL IM (anterolateral thigh). Repeat every 5-15 minutes. Giving 1 mg/mL IV is a classic fatal error.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [],
+        "dangerous_mismatches": [
+          {"id": "EPI_CONC_ROUTE", "text": "1 mg/mL concentration given IV/IO", "concentration_mg_per_ml": 1.0, "routes": ["IV", "IO"]}
+        ],
+        "verified_against_source": false
+      },
+      "amiodarone": {
+        "generic_name": "Amiodarone",
+        "aliases": ["amiodarone", "amio", "cordarone"],
+        "drug_class": "antiarrhythmic",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "50 mg/mL", "mg_per_ml": 50}],
+        "indications": {
+          "cardiac_arrest": {
+            "routes": ["IV", "IO"],
+            "adult": {"dose_min": 150, "dose_max": 300, "max_total": 450, "max_doses": 2, "min_repeat_interval_min": 3},
+            "pediatric": {"per_kg": 5, "max_single": 300, "max_total_per_kg": 15, "max_doses": 3, "min_repeat_interval_min": 3},
+            "note": "VF/pulseless VT: 300 mg first dose, 150 mg second dose.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "AMIO_ALLERGY", "type": "allergy", "text": "Known allergy to amiodarone or iodine", "match": ["amiodarone", "iodine"]}
+        ],
+        "verified_against_source": false
+      },
+      "aspirin": {
+        "generic_name": "Aspirin (acetylsalicylic acid)",
+        "aliases": ["aspirin", "asa", "ecosprin", "disprin"],
+        "drug_class": "antiplatelet",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [],
+        "indications": {
+          "acute_coronary_syndrome": {
+            "routes": ["PO"],
+            "adult": {"dose_min": 162, "dose_max": 325, "max_total": 325, "max_doses": 1, "min_repeat_interval_min": null},
+            "pediatric": null,
+            "note": "Chewable, non-enteric-coated. Adults only.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "ASA_ALLERGY", "type": "allergy", "text": "Aspirin / NSAID allergy", "match": ["aspirin", "nsaid", "salicylate"]},
+          {"id": "ASA_GI_BLEED", "type": "flag", "text": "Active GI bleeding", "flag": "active_gi_bleed"},
+          {"id": "ASA_PEDS", "type": "age", "text": "Not for children (Reye syndrome risk)", "op": "<", "value": 18}
+        ],
+        "verified_against_source": false
+      },
+      "nitroglycerin": {
+        "generic_name": "Nitroglycerin (glyceryl trinitrate)",
+        "aliases": ["nitroglycerin", "nitro", "ntg", "gtn", "sorbitrate"],
+        "drug_class": "vasodilator",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [],
+        "indications": {
+          "acute_coronary_syndrome": {
+            "routes": ["SL"],
+            "adult": {"dose_min": 0.4, "dose_max": 0.4, "max_total": 1.2, "max_doses": 3, "min_repeat_interval_min": 5},
+            "pediatric": null,
+            "note": "0.4 mg SL every 5 minutes while chest pain persists and SBP allows.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "NTG_HYPOTENSION", "type": "vital", "text": "Systolic BP below 90 mmHg", "field": "sbp", "op": "<", "value": 90},
+          {"id": "NTG_PDE5", "type": "flag", "text": "PDE-5 inhibitor (e.g. sildenafil) in the last 48 hours", "flag": "pde5_inhibitor_48h"},
+          {"id": "NTG_RV_INFARCT", "type": "flag", "text": "Suspected right ventricular infarction", "flag": "rv_infarct"}
+        ],
+        "verified_against_source": false
+      },
+      "naloxone": {
+        "generic_name": "Naloxone",
+        "aliases": ["naloxone", "narcan", "nalox"],
+        "drug_class": "opioid antagonist",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "0.4 mg/mL", "mg_per_ml": 0.4}, {"label": "4 mg/0.1 mL nasal", "mg_per_ml": 40}],
+        "indications": {
+          "opioid_overdose": {
+            "routes": ["IV", "IO", "IM", "IN"],
+            "adult": {"dose_min": 0.4, "dose_max": 4, "max_total": 10, "max_doses": null, "min_repeat_interval_min": 2},
+            "pediatric": {"per_kg": 0.1, "max_single": 2, "max_total": 10, "max_doses": null, "min_repeat_interval_min": 2},
+            "note": "Titrate to respiratory effort, not consciousness. 4 mg is the nasal-spray dose.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [],
+        "verified_against_source": false
+      },
+      "midazolam": {
+        "generic_name": "Midazolam",
+        "aliases": ["midazolam", "versed", "midaz", "mezolam"],
+        "drug_class": "benzodiazepine",
+        "controlled": true,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "5 mg/mL", "mg_per_ml": 5}, {"label": "1 mg/mL", "mg_per_ml": 1}],
+        "indications": {
+          "seizure": {
+            "routes": ["IM", "IN", "IV", "IO"],
+            "adult": {"dose_min": 2.5, "dose_max": 10, "max_total": 20, "max_doses": 2, "min_repeat_interval_min": 5},
+            "pediatric": {"per_kg": 0.2, "max_single": 10, "max_total": 20, "max_doses": 2, "min_repeat_interval_min": 5},
+            "note": "IM/IN 0.2 mg/kg (max 10 mg); IV/IO 0.1 mg/kg (max 5 mg). One repeat dose if seizure persists.",
+            "route_overrides": {
+              "IV": {"adult_dose_max": 5, "pediatric_per_kg": 0.1, "pediatric_max_single": 5},
+              "IO": {"adult_dose_max": 5, "pediatric_per_kg": 0.1, "pediatric_max_single": 5}
+            },
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "MIDAZ_HYPOTENSION", "type": "vital", "text": "Systolic BP below 90 mmHg", "field": "sbp", "op": "<", "value": 90},
+          {"id": "MIDAZ_ALLERGY", "type": "allergy", "text": "Benzodiazepine allergy", "match": ["midazolam", "benzodiazepine"]}
+        ],
+        "verified_against_source": false
+      },
+      "fentanyl": {
+        "generic_name": "Fentanyl",
+        "aliases": ["fentanyl", "fent", "sublimaze"],
+        "drug_class": "opioid analgesic",
+        "controlled": true,
+        "canonical_unit": "mcg",
+        "concentrations": [{"label": "50 mcg/mL", "mg_per_ml": 0.05}],
+        "indications": {
+          "pain": {
+            "routes": ["IV", "IO", "IM", "IN"],
+            "adult": {"dose_min": 25, "dose_max": 100, "max_total": 300, "max_doses": null, "min_repeat_interval_min": 5},
+            "pediatric": {"per_kg": 1, "max_single": 100, "max_total_per_kg": 3, "max_doses": null, "min_repeat_interval_min": 5},
+            "note": "1 mcg/kg, may repeat every 5-10 minutes. Watch for chest-wall rigidity with fast IV push.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "FENT_HYPOTENSION", "type": "vital", "text": "Systolic BP below 90 mmHg", "field": "sbp", "op": "<", "value": 90},
+          {"id": "FENT_HYPOXIA", "type": "vital", "text": "SpO2 below 90% / respiratory depression", "field": "spo2", "op": "<", "value": 90},
+          {"id": "FENT_ALLERGY", "type": "allergy", "text": "Opioid allergy", "match": ["fentanyl", "opioid"]}
+        ],
+        "verified_against_source": false
+      },
+      "morphine": {
+        "generic_name": "Morphine",
+        "aliases": ["morphine", "ms", "mso4"],
+        "drug_class": "opioid analgesic",
+        "controlled": true,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "10 mg/mL", "mg_per_ml": 10}],
+        "indications": {
+          "pain": {
+            "routes": ["IV", "IO", "IM"],
+            "adult": {"dose_min": 2, "dose_max": 10, "max_total": 20, "max_doses": null, "min_repeat_interval_min": 5},
+            "pediatric": {"per_kg": 0.1, "max_single": 10, "max_total_per_kg": 0.3, "max_doses": null, "min_repeat_interval_min": 5},
+            "note": "0.1 mg/kg (max 10 mg single dose).",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "MORPH_HYPOTENSION", "type": "vital", "text": "Systolic BP below 90 mmHg", "field": "sbp", "op": "<", "value": 90},
+          {"id": "MORPH_HYPOXIA", "type": "vital", "text": "SpO2 below 90% / respiratory depression", "field": "spo2", "op": "<", "value": 90},
+          {"id": "MORPH_ALLERGY", "type": "allergy", "text": "Morphine / opioid allergy", "match": ["morphine", "opioid"]}
+        ],
+        "verified_against_source": false
+      },
+      "ondansetron": {
+        "generic_name": "Ondansetron",
+        "aliases": ["ondansetron", "zofran", "ondem", "emeset"],
+        "drug_class": "antiemetic",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "2 mg/mL", "mg_per_ml": 2}],
+        "indications": {
+          "nausea_vomiting": {
+            "routes": ["IV", "IO", "IM", "PO", "ODT"],
+            "adult": {"dose_min": 4, "dose_max": 4, "max_total": 8, "max_doses": 2, "min_repeat_interval_min": 10},
+            "pediatric": {"per_kg": 0.15, "max_single": 4, "max_total": 8, "max_doses": 2, "min_repeat_interval_min": 10},
+            "note": "May repeat once after 10-15 minutes.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "ONDAN_QT", "type": "flag", "text": "Known prolonged QT interval", "flag": "long_qt"},
+          {"id": "ONDAN_ALLERGY", "type": "allergy", "text": "Ondansetron allergy", "match": ["ondansetron"]}
+        ],
+        "verified_against_source": false
+      },
+      "salbutamol": {
+        "generic_name": "Salbutamol (albuterol)",
+        "aliases": ["salbutamol", "albuterol", "ventolin", "asthalin", "neb"],
+        "drug_class": "beta-2 agonist bronchodilator",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "2.5 mg/3 mL nebule", "mg_per_ml": 0.833}],
+        "indications": {
+          "bronchospasm": {
+            "routes": ["NEB"],
+            "adult": {"dose_min": 2.5, "dose_max": 5, "max_total": 15, "max_doses": 3, "min_repeat_interval_min": 0},
+            "pediatric": {"per_kg": null, "fixed_dose": 2.5, "max_single": 5, "max_total": 15, "max_doses": 3, "min_repeat_interval_min": 0},
+            "note": "Back-to-back nebulisers are allowed; the cap is 3 doses / 15 mg in the first hour.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [],
+        "verified_against_source": false
+      },
+      "dextrose": {
+        "generic_name": "Dextrose (glucose)",
+        "aliases": ["dextrose", "d50", "d10", "d25", "glucose", "sugar"],
+        "drug_class": "carbohydrate",
+        "controlled": false,
+        "canonical_unit": "g",
+        "concentrations": [
+          {"label": "D50 (0.5 g/mL)", "mg_per_ml": 500},
+          {"label": "D10 (0.1 g/mL)", "mg_per_ml": 100}
+        ],
+        "indications": {
+          "hypoglycemia": {
+            "routes": ["IV", "IO"],
+            "adult": {"dose_min": 10, "dose_max": 25, "max_total": 50, "max_doses": 2, "min_repeat_interval_min": 10},
+            "pediatric": {"per_kg": 0.5, "max_single": 25, "max_total": 50, "max_doses": 2, "min_repeat_interval_min": 10},
+            "note": "Recheck glucose before repeating. Use D10 for children.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "DEX_NOT_HYPO", "type": "vital", "text": "Blood glucose is not low (60 mg/dL or above)", "field": "bgl_mg_dl", "op": ">=", "value": 60}
+        ],
+        "verified_against_source": false
+      },
+      "glucagon": {
+        "generic_name": "Glucagon",
+        "aliases": ["glucagon", "glucagen"],
+        "drug_class": "hormone",
+        "controlled": false,
+        "canonical_unit": "mg",
+        "concentrations": [{"label": "1 mg/mL", "mg_per_ml": 1}],
+        "indications": {
+          "hypoglycemia": {
+            "routes": ["IM", "IN", "SC"],
+            "adult": {"dose_min": 1, "dose_max": 1, "max_total": 2, "max_doses": 2, "min_repeat_interval_min": 15},
+            "pediatric": {"per_kg": null, "fixed_dose": 0.5, "max_single": 1, "max_total": 2, "max_doses": 2, "min_repeat_interval_min": 15},
+            "note": "Used when IV access is not available. Children under 20 kg: 0.5 mg.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [],
+        "verified_against_source": false
+      },
+      "normal_saline": {
+        "generic_name": "Sodium chloride 0.9% (normal saline)",
+        "aliases": ["normal saline", "ns", "saline", "sodium chloride", "fluid bolus", "fluids"],
+        "drug_class": "crystalloid fluid",
+        "controlled": false,
+        "canonical_unit": "mL",
+        "concentrations": [],
+        "indications": {
+          "hypoperfusion": {
+            "routes": ["IV", "IO"],
+            "adult": {"dose_min": 250, "dose_max": 1000, "max_total": 2000, "max_doses": null, "min_repeat_interval_min": 0},
+            "pediatric": {"per_kg": 20, "max_single": 1000, "max_total_per_kg": 60, "max_doses": 3, "min_repeat_interval_min": 0},
+            "note": "Reassess lung sounds and perfusion after every bolus.",
+            "source": "nasemso_v3"
+          }
+        },
+        "contraindications": [
+          {"id": "NS_FLUID_OVERLOAD", "type": "flag", "text": "Signs of fluid overload / pulmonary oedema", "flag": "pulmonary_edema"}
+        ],
+        "verified_against_source": false
+      }
+    },
+    "unit_conversions": {
+      "g_to_mg": 1000,
+      "mg_to_mcg": 1000
+    }
+  }
