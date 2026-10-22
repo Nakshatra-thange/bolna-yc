@@ -87,9 +87,9 @@ You need speech-to-text (voice to text) and text-to-speech (for spoken alerts), 
 |---|---|---|
 | Voice activity detection | Silero VAD | Small and accurate; cuts speech into clips |
 | Speech-to-text | faster-whisper (small or base, int8) or whisper.cpp | Strong accuracy offline; can be biased with a drug-name prompt |
-| Lower-latency alternative | Moonshine or sherpa-onnx streaming models | Faster on weak hardware |
+| Lower-latency alternative | Moonshine, or sherpa-onnx streaming models | Faster on weak hardware |
 | Fixed command words | Vosk with a restricted vocabulary | Reliable “confirm”, “cancel”, “override” |
-| Text-to-speech for alerts | Piper or Kokoro | Fast, natural-sounding, fully offline |
+| Text-to-speech for alerts | Piper, or Kokoro | Fast, natural-sounding, fully offline |
 | All-in-one option | sherpa-onnx | Speech-to-text, VAD and text-to-speech in one toolkit, with Android bindings |
 | Extraction | Small instruct model (roughly 1–4B parameters, Qwen or Phi family) in GGUF format via llama.cpp, with grammar or JSON-schema constrained output | Always-valid JSON; runs on a CPU |
 | Fallback extraction | spaCy or medspaCy rules plus your drug lexicon | Deterministic safety net |
