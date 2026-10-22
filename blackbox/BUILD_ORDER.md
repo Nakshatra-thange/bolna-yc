@@ -83,21 +83,22 @@ Keep the whole last day for the demo video.
 
 You need speech-to-text (voice to text) and text-to-speech (for spoken alerts), both running locally:
 
-Layer	Pick	Why
-Voice activity detection	Silero VAD	Small and accurate; cuts speech into clips
-Speech-to-text	faster-whisper (small or base, int8) or whisper.cpp	Strong accuracy offline; can be biased with a drug-name prompt
-Lower-latency alternative	Moonshine, or sherpa-onnx streaming models	Faster on weak hardware
-Fixed command words	Vosk with a restricted vocabulary	Reliable “confirm”, “cancel”, “override”
-Text-to-speech for alerts	Piper, or Kokoro	Fast, natural-sounding, fully offline
-All-in-one option	sherpa-onnx	Speech-to-text, VAD and text-to-speech in one toolkit, with Android bindings
-Extraction	Small instruct model (roughly 1–4B parameters, Qwen or Phi family) in GGUF format via llama.cpp, with grammar or JSON-schema constrained output	Always-valid JSON, runs on a CPU
-Fallback extraction	spaCy or medspaCy rules plus your drug lexicon	Deterministic safety net
-Guardian	Python rules engine reading the protocol JSON	Auditable; doctors can read the rules
-Crypto	PyNaCl (Ed25519), hashlib (SHA-256), a canonical-JSON library, AES-GCM for audio	Standard primitives
-Storage on device	SQLite, append-only (triggers block updates and deletes)	Simple and robust offline
-Backend and verifier	FastAPI + Postgres; React or Next.js dashboard	Quick to build
-FHIR / PDF	fhir.resources / WeasyPrint	Standards-compliant output
-Evaluation	jiwer for speech error, plus a custom per-field F1 script	Numbers for the pitch
+| Layer | Pick | Why |
+|---|---|---|
+| Voice activity detection | Silero VAD | Small and accurate; cuts speech into clips |
+| Speech-to-text | faster-whisper (small or base, int8) or whisper.cpp | Strong accuracy offline; can be biased with a drug-name prompt |
+| Lower-latency alternative | Moonshine or sherpa-onnx streaming models | Faster on weak hardware |
+| Fixed command words | Vosk with a restricted vocabulary | Reliable “confirm”, “cancel”, “override” |
+| Text-to-speech for alerts | Piper or Kokoro | Fast, natural-sounding, fully offline |
+| All-in-one option | sherpa-onnx | Speech-to-text, VAD and text-to-speech in one toolkit, with Android bindings |
+| Extraction | Small instruct model (roughly 1–4B parameters, Qwen or Phi family) in GGUF format via llama.cpp, with grammar or JSON-schema constrained output | Always-valid JSON; runs on a CPU |
+| Fallback extraction | spaCy or medspaCy rules plus your drug lexicon | Deterministic safety net |
+| Guardian | Python rules engine reading the protocol JSON | Auditable; doctors can read the rules |
+| Crypto | PyNaCl (Ed25519), hashlib (SHA-256), a canonical-JSON library, AES-GCM for audio | Standard primitives |
+| Storage on device | SQLite, append-only (triggers block updates and deletes) | Simple and robust offline |
+| Backend and verifier | FastAPI + Postgres; React or Next.js dashboard | Quick to build |
+| FHIR / PDF | fhir.resources / WeasyPrint | Standards-compliant output |
+| Evaluation | jiwer for speech error, plus a custom per-field F1 script | Numbers for the pitch |
 
 Deployment recommendation: run the edge unit on a laptop or mini-PC that stands in for the ambulance’s onboard computer. It runs everything locally and hosts a web UI. A phone or tablet connects to that UI over the laptop’s own Wi-Fi hotspot, with no internet at all. This is realistic, since ambulances already carry onboard tablets, and far easier than fitting a language model onto a phone. If you have spare time, port the speech-to-text and text-to-speech to Android with sherpa-onnx.
 
