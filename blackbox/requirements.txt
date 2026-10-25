@@ -1,0 +1,6 @@
+pydantic>=2.6
+pytest
+numpy
+soundfile
+sounddevice
+faster-whisper

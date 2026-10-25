@@ -1,0 +1,31 @@
+id,speaker,text,tags
+BB-002,P1,"gave 0.5 migs of epi in the thigh, like two minutes ago",english medication numbers_digits time_relative
+BB-009,P2,"patient received ondansetron four migs through the line, two minutes back",english medication numbers_colloquial time_relative
+BB-013,P3,gave five milligrams of morphine through the line,english medication numbers_colloquial time_logged
+BB-015,P1,patient received D10 ten grams intravenous at 08:58,english medication numbers_colloquial time_explicit
+BB-018,P2,patient received normal saline five hundred milliliters intravenous,english medication numbers_colloquial time_logged
+BB-021,P3,pushing one mig epinephrine IV,english medication numbers_words time_logged
+BB-030,P1,administered naloxone 4 migs up the nose,english medication numbers_digits time_logged
+BB-033,P2,"patient ko Ecosprin three hundred twenty four migs munh se diya, pandrah minute pehle",brand_name hinglish medication numbers_words time_relative
+BB-042,P3,"patient ko naloxone zero point four migs IM diya, paanch minute pehle",hinglish medication numbers_words time_relative
+BB-044,P1,abhi adrenaline zero point five migs IM lagaya,hinglish medication numbers_words time_logged
+BB-046,P2,patient ko Asthalin 5 milligrams nebulised diya at 09:29,brand_name hinglish medication numbers_digits time_explicit
+BB-047,P3,4 zofran as a dissolving tablet in,english medication no_unit numbers_digits time_logged
+BB-050,P1,pushing 325 aspirin PO,english medication no_unit numbers_digits time_logged
+BB-051,P2,amiodarone one hundred fifty intravenous given,english medication no_unit numbers_words time_logged
+BB-052,P3,gave 5 of morphine IV,english medication no_unit numbers_digits time_logged
+BB-054,P1,"naloxone four milligrams ready, holding for now",cancelled english
+BB-055,P2,about to give aspirin three hundred twenty five mg chewed,cancelled english
+BB-058,P3,aspirin three twenty four chewed and nitro point four under the tongue,english multi_event numbers_colloquial
+BB-061,P1,"IO access right tibia, then epi one milligram IO",english multi_event numbers_words procedure
+BB-069,P2,"compressions started, two minutes ago",english procedure time_relative
+BB-073,P3,"line laga di, 18 gauge",hinglish procedure
+BB-075,P1,"BP one twenty over eighty, heart rate one ten, sats ninety four",english vital
+BB-082,P2,"blood pressure eighty five over fifty, heart rate one thirty",english vital
+BB-087,P3,mareez ko saans lene mein dikkat hai,hinglish note
+BB-099,P1,"no aspirin, he's allergic",english hard_heldout note
+BB-107,P2,"glucagon one milligram IM, couldn't get a line",english hard_heldout medication
+BB-109,P3,"shocked again, same energy",english hard_heldout procedure
+BB-112,P1,BP is 90 over palp,english hard_heldout vital
+BB-113,P2,epinephrine 1 milligram I V given,english hard_heldout medication
+BB-116,P3,Inj. Fentanyl 50 mcg IV stat,hard_heldout hinglish medication
