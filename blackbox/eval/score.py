@@ -189,7 +189,7 @@ def _drug_in(hyp_norm: str, drug: str) -> bool:
     return any(re.search(r"(?<![a-z0-9])" + re.escape(a) + r"(?![a-z0-9])", hyp_norm) for a in aliases)
 
 
-def score_asr(gold_rows, asr_rows):
+def score_asr(gold_rows, asr_rows, field="text"):
     gold = {g["id"]: g for g in gold_rows}
     stats = defaultdict(lambda: {"edits": 0, "ref_words": 0, "drug_hit": 0, "drug_n": 0,
                                  "dose_hit": 0, "dose_n": 0, "n": 0, "audio_s": 0.0, "proc_s": 0.0})
@@ -199,7 +199,8 @@ def score_asr(gold_rows, asr_rows):
         if not g:
             continue
         s = stats[r.get("condition", "default")]
-        ref, hyp = _norm_words(g["text"]), _norm_words(r["text"])
+        hyp_text = r.get(field, r["text"])
+        ref, hyp = _norm_words(g["text"]), _norm_words(hyp_text)
         e = edit_distance(ref, hyp)
         s["edits"] += e; s["ref_words"] += len(ref); s["n"] += 1
         s["audio_s"] += r.get("audio_s", 0.0); s["proc_s"] += r.get("latency_s", 0.0)
@@ -211,7 +212,7 @@ def score_asr(gold_rows, asr_rows):
             s["dose_n"] += 1
             d = ev["dose"]
             s["dose_hit"] += (str(int(d)) if d == int(d) else repr(d)) in hyp_set
-        worst.append((e / max(len(ref), 1), r.get("condition", "default"), r["id"], g["text"], r["text"]))
+            worst.append((e / max(len(ref), 1), r.get("condition", "default"), r["id"], g["text"], hyp_text))
     worst.sort(reverse=True)
     return stats, worst[:8]
 
@@ -305,6 +306,7 @@ def main():
     ap.add_argument("--gold", default=str(ROOT / "eval" / "data" / "gold.jsonl"))
     ap.add_argument("--pred", help="extractor output jsonl: {id, events}")
     ap.add_argument("--asr", help="ASR output jsonl: {id, condition, text}")
+    ap.add_argument("--asr-field", default="text", help="'text' (after lexicon fix) or 'raw_text' (straight ASR)")
     ap.add_argument("--only-recorded", action="store_true", help="score only cases in the recording subset")
     ap.add_argument("--time-tol", type=float, default=60, help="seconds of slack for time_said")
     ap.add_argument("--label", help="append this run to eval/results/history.csv")
@@ -326,7 +328,7 @@ def main():
         res = score_extraction(g, pred, a.time_tol)
         report_extraction(res, show_errors=a.errors)
     if a.asr:
-        stats, worst = score_asr(gold, load_jsonl(a.asr))
+        stats, worst = score_asr(gold, load_jsonl(a.asr), a.asr_field)
         report_asr(stats, worst)
     if a.label:
         append_history(a.label, res, stats)

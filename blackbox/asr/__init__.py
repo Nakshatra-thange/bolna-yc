@@ -1,0 +1,1 @@
+"""Black Box on-device speech pipeline: VAD -> ASR (biased) -> lexicon correction."""

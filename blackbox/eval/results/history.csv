@@ -1,2 +1,6 @@
-timestamp,label,headline_f1,event_f1,exact_match,hard_exact,drug_f1,dose_f1,unit_f1,route_f1,time_f1
-2026-10-25T11:01:04+00:00,rules-baseline,0.9732,0.9583,0.8824,0.5333,0.9825,0.9643,0.9881,0.9565,0.9735
+timestamp,label,headline_f1,event_f1,exact_match,hard_exact,drug_f1,dose_f1,unit_f1,route_f1,time_f1,wer_tts
+2026-10-25T11:01:04+00:00,rules-baseline,0.9732,0.9583,0.8824,0.5333,0.9825,0.9643,0.9881,0.9565,0.9735,
+2026-10-25T15:47:15+00:00,small: no bias,,,,,,,,,,0.5419
+2026-10-25T15:47:24+00:00,small: lexfix only,,,,,,,,,,0.4926
+2026-10-25T15:47:32+00:00,small: prompt+lexfix,,,,,,,,,,0.4076
+2026-10-25T15:47:40+00:00,small: hotwords+lexfix,,,,,,,,,,0.5419

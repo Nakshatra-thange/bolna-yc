@@ -4,3 +4,6 @@ numpy
 soundfile
 sounddevice
 faster-whisper
+onnxruntime
+espeakng-loader
+sherpa-onnx
