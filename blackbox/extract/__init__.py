@@ -1,0 +1,1 @@
+"""Black Box extraction: local LLM (grammar-constrained JSON) + rules cross-check + confirmation."""

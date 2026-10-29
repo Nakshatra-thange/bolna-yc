@@ -118,6 +118,7 @@ def score_extraction(gold_rows, pred_rows, time_tol_s=60):
     detection = PRF()
     exact = 0
     exact_by_tag: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    safety = {"meds": 0, "flagged": 0, "wrong": 0, "wrong_flagged": 0}
     errors = []
     missing = [g["id"] for g in gold_rows if g["id"] not in preds]
 
@@ -143,12 +144,25 @@ def score_extraction(gold_rows, pred_rows, time_tol_s=60):
                 for b in buckets:
                     b[k].add(tp, fp, fn)
 
+        def safety_count(p: dict, wrong: bool):
+            if p.get("event_type") != "medication":
+                return
+            flagged = bool(p.get("needs_confirmation"))
+            safety["meds"] += 1
+            safety["flagged"] += flagged
+            safety["wrong"] += wrong
+            safety["wrong_flagged"] += wrong and flagged
+
         for g, p in pairs:
-            tally(fields(g), fields(p))
+            gf, pf = fields(g), fields(p)
+            safety_count(p, any(gf.get(k) is None or pf.get(k) is None or not same(k, gf[k], pf[k], time_tol_s)
+                                for k in set(gf) | set(pf)))
+            tally(gf, pf)
         for g in g_un:
             tally(fields(g), {})
             errors.append((case["id"], "MISSED_EVENT", event_key(g), None))
         for p in p_un:
+            safety_count(p, True)
             tally({}, fields(p))
             errors.append((case["id"], "EXTRA_EVENT", None, event_key(p)))
         exact += case_ok
@@ -163,7 +177,7 @@ def score_extraction(gold_rows, pred_rows, time_tol_s=60):
             headline.add(x.tp, x.fp, x.fn)
     n = len(gold_rows) - len(missing)
     return {"per_field": per_field, "by_tag": by_tag, "detection": detection, "headline": headline,
-            "exact_match": exact / n if n else 0.0, "exact_by_tag": exact_by_tag, "n_cases": n, "missing": missing, "errors": errors}
+            "exact_match": exact / n if n else 0.0, "exact_by_tag": exact_by_tag, "safety": safety, "n_cases": n, "missing": missing, "errors": errors}
 
 
 # ------------------------------------------------------------------ ASR
@@ -212,7 +226,7 @@ def score_asr(gold_rows, asr_rows, field="text"):
             s["dose_n"] += 1
             d = ev["dose"]
             s["dose_hit"] += (str(int(d)) if d == int(d) else repr(d)) in hyp_set
-            worst.append((e / max(len(ref), 1), r.get("condition", "default"), r["id"], g["text"], hyp_text))
+        worst.append((e / max(len(ref), 1), r.get("condition", "default"), r["id"], g["text"], hyp_text))
     worst.sort(reverse=True)
     return stats, worst[:8]
 
@@ -235,6 +249,14 @@ def report_extraction(res, show_tags=True, show_errors=15):
     print(f"{'event detection':<16}{pct(d.p):>7}{pct(d.r):>7}{pct(d.f1):>7}{d.support:>9}")
     print(f"{'HEADLINE F1':<16}{'':>14}{pct(h.f1):>7}   (micro over {', '.join(HEADLINE)})")
     print(f"{'exact-match':<16}{'':>14}{pct(res['exact_match']):>7}   (whole utterance perfect)")
+
+    sf = res["safety"]
+    if sf["meds"]:
+        unflagged = sf["wrong"] - sf["wrong_flagged"]
+        print(f"\nSAFETY (medication events): {sf['meds']} recorded, {sf['flagged']} sent for confirmation "
+              f"({pct(sf['flagged'] / sf['meds']).strip()}%)")
+        print(f"  wrong: {sf['wrong']}   caught by confirmation: {sf['wrong_flagged']}   "
+              f"WRONG AND UNFLAGGED: {unflagged} ({pct(unflagged / sf['meds']).strip()}% of recorded meds)")
 
     if show_tags:
         print(f"\n{'by tag':<22}{'headline F1':>12}{'event F1':>10}{'gold ev':>9}{'extra ev':>10}{'exact':>8}")
@@ -278,14 +300,17 @@ def append_history(label, res=None, asr_stats=None):
         ok, n = res["exact_by_tag"].get("hard_heldout", (0, 0))
         row.update({"headline_f1": round(res["headline"].f1, 4), "event_f1": round(res["detection"].f1, 4),
                     "exact_match": round(res["exact_match"], 4),
-                    "hard_exact": round(ok / n, 4) if n else ""})
+                    "hard_exact": round(ok / n, 4) if n else "",
+                    "unflagged_wrong_meds": res["safety"]["wrong"] - res["safety"]["wrong_flagged"],
+                    "flag_rate": round(res["safety"]["flagged"] / res["safety"]["meds"], 4) if res["safety"]["meds"] else ""})
         for f in HEADLINE:
             if f in res["per_field"]:
                 row[f"{f}_f1"] = round(res["per_field"][f].f1, 4)
     if asr_stats:
         for cond, s in asr_stats.items():
             row[f"wer_{cond}"] = round(s["edits"] / max(s["ref_words"], 1), 4)
-    cols = ["timestamp", "label", "headline_f1", "event_f1", "exact_match", "hard_exact"] + [f"{f}_f1" for f in HEADLINE]
+    cols = ["timestamp", "label", "headline_f1", "event_f1", "exact_match", "hard_exact",
+            "unflagged_wrong_meds", "flag_rate"] + [f"{f}_f1" for f in HEADLINE]
     cols += sorted(k for k in row if k.startswith("wer_"))
     new = not path.exists()
     if not new:  # keep any older columns

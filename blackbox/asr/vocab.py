@@ -52,7 +52,7 @@ UNIT_TERMS = {"milligram": "milligram", "milligrams": "milligrams", "micrograms"
 
 # Exact ASR confusions seen in eval runs. Add to this from score.py's "worst utterances" list.
 KNOWN_CONFUSIONS = [
-    (r"\broman (?:4|iv|four)\b", "IV"),
+    (r"\broman (?:4|iv|four|for|far)\b", "IV"),
     (r"\bi(?:\. ?| )v\b\.?", "IV"),
     (r"\bi(?:\. ?| )m\b\.?", "IM"),
     (r"\bi(?:\. ?| )o\b\.?", "IO"),

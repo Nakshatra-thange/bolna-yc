@@ -7,3 +7,4 @@ faster-whisper
 onnxruntime
 espeakng-loader
 sherpa-onnx
+llama-cpp-python
