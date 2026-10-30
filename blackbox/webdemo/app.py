@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import faulthandler
+import traceback
 import json
 import sys
 import threading
@@ -33,7 +35,7 @@ from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402
 
 from asr.engine import SR, Transcript  # noqa: E402
-from asr.live import Pipeline  # noqa: E402
+from webdemo.live import Pipeline  # noqa: E402
 from asr.vad import Clip  # noqa: E402
 from audit.chain import Entry  # noqa: E402
 from audit.verify import materialize, verify_chain  # noqa: E402
@@ -249,6 +251,11 @@ def create_app(args) -> FastAPI:
 
     app = FastAPI(title="Black Box live demo", lifespan=lifespan)
 
+    @app.exception_handler(Exception)
+    async def _any_error(_req, exc):           # never leave the page with a bare "failed to fetch"
+        traceback.print_exc()
+        return JSONResponse({"detail": f"{type(exc).__name__}: {exc}"}, status_code=500)
+
     @app.get("/", response_class=HTMLResponse)
     async def index():
         return (STATIC / "index.html").read_text(encoding="utf-8")
@@ -311,6 +318,7 @@ def main():
     ap.add_argument("--incident", default=datetime.now().strftime("WEB-%Y%m%d-%H%M%S"))
     ap.add_argument("--server-url", default="http://127.0.0.1:8000", help="hospital server for the Sync button")
     args = ap.parse_args()
+    faulthandler.enable()        # a native crash in the speech library prints a trace instead of dying silently
     import uvicorn
     uvicorn.run(create_app(args), host=args.host, port=args.port, log_level="warning")
 

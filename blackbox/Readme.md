@@ -29,7 +29,7 @@ Run the attack simulation: change one dose after the fact. The dashboard turns r
 *"Entry #15 fails verification — it was changed after the ambulance signed it."* Play the original voice clip, press Restore, green again.
 
 ## Results (reproducible)
-- Test suite: **172 tests pass** (`python -m pytest -q`).
+- Test suite: **169 passed, 2 skipped** with global Miniforge Python 3.12 (`x86_64`); **189 passed** with `.venv-native` Python 3.12 (`arm64`). Both were run with `python -m pytest -q`.
 - Guardian: **23/23** scenes, alert precision **1.00**, recall **1.00**, 0 false alarms (`python eval/score_guardian.py`).
 - Extraction on 119 gold dictations (30 hard held-out), rules only, no LLM: headline F1 **97.3**; on the hard held-out set event F1 **83.3**.
   Of 87 recorded medications, 12 were wrong, **10 were caught by confirmation**, 2 slipped through. This is the number the LLM + verification layer exists to improve:

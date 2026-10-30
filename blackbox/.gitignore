@@ -1,5 +1,6 @@
 # ---------- Python / tooling
 .venv/
+.venv-*/
 venv/
 .venv-native/
 .venv-arm/
@@ -27,6 +28,7 @@ models/
 
 # ---------- Runtime data: chain DB, voice clips, incident logs (patient-like data, never commit)
 runs/
+server_data/
 *.db
 *.db-wal
 *.db-shm

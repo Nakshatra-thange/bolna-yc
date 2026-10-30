@@ -113,6 +113,7 @@ a{color:var(--blue)}
     <span class="chip" id="cNet">network</span>
     <span class="chip" id="cAsr">speech model</span>
     <span class="chip" id="cInc">incident</span>
+    <span class="chip" id="cConn">server</span>
   </div>
 </header>
 
@@ -320,7 +321,12 @@ function renderState(st) {
     rec.append(it);
   }
 }
-async function refresh() { try { renderState(await api("/api/state")); } catch (e) { $("status").textContent = "server not reachable"; } }
+function setConn(ok) {
+  const c = $("cConn"); c.className = "chip " + (ok ? "ok" : "bad");
+  c.innerHTML = ok ? "server: <b>connected</b>" : "server: <b>NOT REACHABLE</b>";
+}
+async function refresh() { try { renderState(await api("/api/state")); setConn(true); } catch (e) { setConn(false); } }
+setInterval(refresh, 5000);
 
 /* ---------------------------------------------------------------- sending */
 let queue = Promise.resolve();
@@ -334,7 +340,16 @@ function send(path, init, label) {
       if (!j.utterance) { node.remove(); }
       else { renderUtterance(j.utterance, node); speakLines(j.utterance.say); }
       renderState(j.state);
-    } catch (e) { node.className = "card alert"; node.replaceChildren(el("div", "meta", "error"), el("div", "said", String(e.message || e))); }
+    } catch (e) {
+      const lost = e instanceof TypeError;       // fetch() itself failed: the server is down or crashed
+      node.className = "card alert";
+      node.replaceChildren(el("div", "meta", lost ? "server not reachable" : "error"),
+        el("div", "said", lost ? "Lost connection to the Black Box server." : String(e.message || e)),
+        noteBox("warning", lost ? "WHAT TO DO" : "DETAIL", lost
+          ? "Look at the terminal running `python -m webdemo.app`: it printed the error (or has stopped). Restart it, reload this page. If it only dies on voice, restart with --no-asr to confirm the speech model is the cause."
+          : "The server reported this error; the full traceback is in its terminal."));
+      setConn(!lost);
+    }
     setOrb();
   });
   return queue;
