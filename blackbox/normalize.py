@@ -132,15 +132,24 @@ _REL_EN = re.compile(r"(?:about |around |like |roughly |approx(?:imately)? )?"
                      r"(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)\s*(?:ago|back|before)")
 _REL_HI = re.compile(r"(\d+|" + "|".join(HINDI_NUM) + r")\s*(?:minute|minutes|min|mins)\s*(?:pehle|pahle|pehele)")
 _HALF_HOUR = re.compile(r"half an hour (?:ago|back)|aadha ghanta pehle")
-_CLOCK = re.compile(r"\bat (\d{1,2}):(\d{2})\b")
+_CLOCK = re.compile(r"\bat (\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", re.I)
 
 
 def resolve_time(text: str, time_logged: datetime) -> tuple[datetime, str, Optional[tuple[int, int]]]:
     """Return (time_said, time_source, span) where span is the matched char range or None.
     text should already be passed through words_to_numbers()."""
     m = _CLOCK.search(text)
+    if m and not (m.group(2) or m.group(3)):
+        m = None  # a bare hour is ambiguous; do not invent AM or PM
     if m:
-        hh, mm = int(m.group(1)), int(m.group(2))
+        hh, mm = int(m.group(1)), int(m.group(2) or 0)
+        meridiem = (m.group(3) or "").lower()
+        if meridiem:
+            if not 1 <= hh <= 12:
+                return time_logged, "logged", None
+            hh = hh % 12 + (12 if meridiem == "pm" else 0)
+        elif hh > 23:
+            return time_logged, "logged", None
         t = time_logged.replace(hour=hh, minute=mm, second=0, microsecond=0)
         if t > time_logged:  # said "at 23:50" just after midnight
             t -= timedelta(days=1)

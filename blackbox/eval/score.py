@@ -5,8 +5,12 @@ Extraction (per-field precision / recall / F1):
   python eval/score.py --pred eval/preds/rules.jsonl --label rules-v1
 
 ASR (WER + safety-critical recall), optionally together with extraction:
-  python eval/score.py --asr eval/preds/asr_small.jsonl
-  python eval/score.py --pred eval/preds/rules_on_siren5.jsonl --asr eval/preds/asr_small.jsonl --label rules+whisper-small
+  python eval/score.py --asr eval/preds/asr_fw-small_none.jsonl --asr-field raw_text
+  python eval/score.py --asr eval/preds/asr_fw-small_prompt.jsonl --same-utts-as eval/preds/asr_fw-small_none.jsonl
+  python eval/score.py --pred eval/preds/rules_siren5.jsonl --asr eval/preds/asr_fw-small_none.jsonl --label rules+whisper-small
+
+With --pred from an ASR condition, the ASR section is restricted to that same condition and ids.
+Empty, mismatched or mixed-condition inputs are errors, never a 0.0 score.
 
 Every run with --label is appended to eval/results/history.csv, so you can show
 the score climbing feature by feature in the pitch.
@@ -28,6 +32,7 @@ sys.path.insert(0, str(ROOT))
 
 from normalize import words_to_numbers  # noqa: E402
 from protocol import ProtocolBook, to_canonical  # noqa: E402
+from rule_extractor import ROUTE_PATTERNS, UNIT_PATTERNS  # noqa: E402
 
 BOOK = ProtocolBook.load()
 VITAL_KEYS = ["sbp", "dbp", "hr", "spo2", "rr", "gcs", "bgl_mg_dl", "temp_c"]
@@ -111,8 +116,29 @@ class PRF:
     def support(self): return self.tp + self.fn
 
 
+def check_preds(gold_rows, pred_rows) -> None:
+    """Raise on prediction files that would score as something they're not."""
+    if not pred_rows:
+        raise SystemExit("prediction file is empty - nothing to score")
+    gold_ids = {g["id"] for g in gold_rows}
+    ids = [r.get("id") for r in pred_rows]
+    if None in ids or any("events" not in r for r in pred_rows):
+        raise SystemExit("prediction rows must have 'id' and 'events'")
+    dup = sorted({i for i in ids if ids.count(i) > 1})
+    if dup:
+        raise SystemExit(f"duplicate prediction ids {dup} (mixed conditions? extract one --condition at a time)")
+    unknown = sorted(set(ids) - gold_ids)
+    if unknown:
+        raise SystemExit(f"prediction ids not in gold: {unknown}")
+    conds = {r.get("condition") for r in pred_rows}
+    if len(conds) > 1:
+        raise SystemExit(f"prediction file mixes conditions {sorted(map(str, conds))}")
+
+
 def score_extraction(gold_rows, pred_rows, time_tol_s=60):
     preds = {r["id"]: r.get("events", []) for r in pred_rows}
+    if not any(g["id"] in preds for g in gold_rows):
+        raise ValueError("0 gold cases have a prediction - refusing to report an empty evaluation")
     per_field: dict[str, PRF] = defaultdict(PRF)
     by_tag: dict[str, dict[str, PRF]] = defaultdict(lambda: defaultdict(PRF))
     detection = PRF()
@@ -203,32 +229,65 @@ def _drug_in(hyp_norm: str, drug: str) -> bool:
     return any(re.search(r"(?<![a-z0-9])" + re.escape(a) + r"(?![a-z0-9])", hyp_norm) for a in aliases)
 
 
+def check_asr(gold_rows, asr_rows, field="text") -> None:
+    """Raise on ASR files that can't be scored honestly (no silent fallbacks or skips)."""
+    if not asr_rows:
+        raise SystemExit("ASR file has no rows (after condition filter)")
+    gold_ids = {g["id"] for g in gold_rows}
+    bad = [f"{r.get('id')} [{r.get('condition')}]" for r in asr_rows if field not in r or "condition" not in r]
+    if bad:
+        raise SystemExit(f"ASR rows lack {field!r} or 'condition': {bad[:5]}{' ...' if len(bad) > 5 else ''}")
+    keys = [(r["condition"], r["id"]) for r in asr_rows]
+    dup = sorted({k for k in keys if keys.count(k) > 1})
+    if dup:
+        raise SystemExit(f"duplicate (condition, id) rows: {dup[:5]}")
+    unknown = sorted({r["id"] for r in asr_rows} - gold_ids)
+    if unknown:
+        raise SystemExit(f"ASR ids not in gold: {unknown}")
+
+
+def _safety_checks(ev: dict, hyp_str: str, hyp_set: set) -> dict[str, bool]:
+    """Did each safety-critical part of a gold medication survive ASR? (word-level, no extraction)"""
+    d = ev["dose"]
+    out = {"drug": _drug_in(hyp_str, ev["drug"]),
+           "dose": (str(int(d)) if d == int(d) else repr(d)) in hyp_set}
+    if ev.get("unit"):
+        out["unit"] = bool(re.search(r"(?<![a-z])(?:" + dict(UNIT_PATTERNS)[ev["unit"]] + r")(?![a-z])", hyp_str))
+    if ev.get("route"):
+        out["route"] = bool(re.search(dict(ROUTE_PATTERNS)[ev["route"]], hyp_str))
+    return out
+
+
+SAFETY_FIELDS = ["drug", "dose", "unit", "route"]
+
+
 def score_asr(gold_rows, asr_rows, field="text"):
+    """Returns (stats per condition, per-utterance detail rows)."""
     gold = {g["id"]: g for g in gold_rows}
-    stats = defaultdict(lambda: {"edits": 0, "ref_words": 0, "drug_hit": 0, "drug_n": 0,
-                                 "dose_hit": 0, "dose_n": 0, "n": 0, "audio_s": 0.0, "proc_s": 0.0})
-    worst = []
+    stats = defaultdict(lambda: {"edits": 0, "ref_words": 0, "n": 0, "audio_s": 0.0, "proc_s": 0.0,
+                                 **{f"{k}_{x}": 0 for k in SAFETY_FIELDS for x in ("hit", "n")}})
+    detail = []
     for r in asr_rows:
-        g = gold.get(r["id"])
-        if not g:
-            continue
-        s = stats[r.get("condition", "default")]
-        hyp_text = r.get(field, r["text"])
+        g = gold[r["id"]]
+        s = stats[r["condition"]]
+        hyp_text = r[field]
         ref, hyp = _norm_words(g["text"]), _norm_words(hyp_text)
         e = edit_distance(ref, hyp)
         s["edits"] += e; s["ref_words"] += len(ref); s["n"] += 1
         s["audio_s"] += r.get("audio_s", 0.0); s["proc_s"] += r.get("latency_s", 0.0)
         hyp_str, hyp_set = " ".join(hyp), set(hyp)
+        missed = []
         for ev in g["events"]:
             if ev["event_type"] != "medication":
                 continue
-            s["drug_n"] += 1; s["drug_hit"] += _drug_in(hyp_str, ev["drug"])
-            s["dose_n"] += 1
-            d = ev["dose"]
-            s["dose_hit"] += (str(int(d)) if d == int(d) else repr(d)) in hyp_set
-        worst.append((e / max(len(ref), 1), r.get("condition", "default"), r["id"], g["text"], hyp_text))
-    worst.sort(reverse=True)
-    return stats, worst[:8]
+            for k, ok in _safety_checks(ev, hyp_str, hyp_set).items():
+                s[f"{k}_n"] += 1; s[f"{k}_hit"] += ok
+                if not ok:
+                    missed.append(f"{k}:{ev[k]}")
+        detail.append({"wer": e / max(len(ref), 1), "condition": r["condition"], "id": r["id"],
+                       "ref": g["text"], "hyp": hyp_text, "raw": r.get("raw_text"), "missed": missed,
+                       "corrections": r.get("corrections", [])})
+    return stats, detail
 
 
 # ------------------------------------------------------------------ report
@@ -277,28 +336,64 @@ def report_extraction(res, show_tags=True, show_errors=15):
             print("  ", e)
 
 
-def report_asr(stats, worst):
-    print("\n=== ASR ===")
-    print(f"{'condition':<16}{'WER':>7}{'drug recall':>13}{'dose recall':>13}{'RTF':>7}{'utts':>6}")
-    for cond, s in sorted(stats.items()):
-        wer = s["edits"] / max(s["ref_words"], 1)
-        dr = s["drug_hit"] / max(s["drug_n"], 1)
-        do = s["dose_hit"] / max(s["dose_n"], 1)
-        rtf = f"{s['proc_s'] / s['audio_s']:.2f}" if s["audio_s"] else "  -"
-        print(f"{cond:<16}{pct(wer):>7}{pct(dr):>13}{pct(do):>13}{rtf:>7}{s['n']:>6}")
-    print("(drug/dose recall = did the safety-critical words survive ASR; RTF = processing time / audio time)")
-    print("\nworst utterances:")
-    for w, cond, cid, ref, hyp in worst:
-        print(f"  {cid} [{cond}] WER {pct(w)}\n     ref: {ref}\n     hyp: {hyp}")
+SYNTHETIC = {"tts"}  # reported apart so it can't hide (or flatter) the recorded-audio numbers
 
 
-def append_history(label, res=None, asr_stats=None):
+def _asr_row(name, s):
+    wer = s["edits"] / max(s["ref_words"], 1)
+    rec = "".join(f"{pct(s[f'{k}_hit'] / s[f'{k}_n']) if s[f'{k}_n'] else '   - ':>8}" for k in SAFETY_FIELDS)
+    rtf = f"{s['proc_s'] / s['audio_s']:.2f}" if s["audio_s"] else "  -"
+    print(f"{name:<16}{pct(wer):>7}{rec}{rtf:>7}{s['n']:>6}")
+
+
+def _print_detail(d):
+    print(f"  {d['id']} [{d['condition']}] WER {pct(d['wer'])}   missed: {', '.join(d['missed']) or 'none'}")
+    print(f"     ref: {d['ref']}\n     hyp: {d['hyp']}")
+    if d["raw"] is not None and d["raw"] != d["hyp"]:
+        print(f"     raw: {d['raw']}")
+    for c in d["corrections"]:
+        print(f"     lexicon: {c['heard']!r} -> {c['fixed']!r} ({c['kind']}, {c['score']})")
+
+
+def report_asr(stats, detail, field="text", show_ids=(), n_worst=8):
+    print(f"\n=== ASR (field: {field}) ===")
+    print(f"{'condition':<16}{'WER':>7}" + "".join(f"{k + ' R':>8}" for k in SAFETY_FIELDS) + f"{'RTF':>7}{'utts':>6}")
+    groups = [("recorded", sorted(c for c in stats if c not in SYNTHETIC)),
+              ("synthetic", sorted(c for c in stats if c in SYNTHETIC))]
+    for gname, conds in groups:
+        if not conds:
+            continue
+        for cond in conds:
+            _asr_row(cond, stats[cond])
+        if len(conds) > 1:
+            pool = defaultdict(float)
+            for c in conds:
+                for k, v in stats[c].items():
+                    pool[k] += v
+            _asr_row(f"[{gname} pooled]", pool)
+        print("-" * 70)
+    print("(R = recall of the gold medication's drug / dose / unit / route words in the transcript;\n"
+          " RTF = processing time / audio time)")
+    for gname, conds in groups:
+        rows = sorted((d for d in detail if d["condition"] in conds), key=lambda d: -d["wer"])
+        if rows:
+            print(f"\nworst {gname} utterances:")
+            for d in rows[:n_worst]:
+                _print_detail(d)
+    for cid in show_ids:
+        rows = [d for d in detail if d["id"] == cid]
+        print(f"\n--- {cid}: {len(rows)} condition(s) ---")
+        for d in rows:
+            _print_detail(d)
+
+
+def append_history(label, res=None, asr_stats=None, sources=None):
     path = ROOT / "eval" / "results" / "history.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
-    row = {"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"), "label": label}
+    row = {"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"), "label": label, **(sources or {})}
     if res:
         ok, n = res["exact_by_tag"].get("hard_heldout", (0, 0))
-        row.update({"headline_f1": round(res["headline"].f1, 4), "event_f1": round(res["detection"].f1, 4),
+        row.update({"n_cases": res["n_cases"],"headline_f1": round(res["headline"].f1, 4), "event_f1": round(res["detection"].f1, 4),
                     "exact_match": round(res["exact_match"], 4),
                     "hard_exact": round(ok / n, 4) if n else "",
                     "unflagged_wrong_meds": res["safety"]["wrong"] - res["safety"]["wrong_flagged"],
@@ -309,9 +404,10 @@ def append_history(label, res=None, asr_stats=None):
     if asr_stats:
         for cond, s in asr_stats.items():
             row[f"wer_{cond}"] = round(s["edits"] / max(s["ref_words"], 1), 4)
-    cols = ["timestamp", "label", "headline_f1", "event_f1", "exact_match", "hard_exact",
+            row[f"n_{cond}"] = s["n"]
+    cols = ["timestamp", "label", "pred_file", "asr_file", "asr_field", "condition", "n_cases", "headline_f1", "event_f1", "exact_match", "hard_exact",
             "unflagged_wrong_meds", "flag_rate"] + [f"{f}_f1" for f in HEADLINE]
-    cols += sorted(k for k in row if k.startswith("wer_"))
+    cols += sorted(k for k in row if k.startswith(("wer_", "n_")) and k != "n_cases")
     new = not path.exists()
     if not new:  # keep any older columns
         with open(path, encoding="utf-8") as f:
@@ -326,12 +422,26 @@ def append_history(label, res=None, asr_stats=None):
     print(f"\nlogged '{label}' -> {path}")
 
 
+def load_asr(path, field, conditions=None) -> list[dict]:
+    rows = load_jsonl(path)
+    if conditions:
+        have = sorted({r.get("condition") for r in rows})
+        absent = [c for c in conditions if c not in have]
+        if absent:
+            raise SystemExit(f"{path}: no rows for condition(s) {absent}; file has {have}")
+        rows = [r for r in rows if r.get("condition") in conditions]
+    return rows
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gold", default=str(ROOT / "eval" / "data" / "gold.jsonl"))
-    ap.add_argument("--pred", help="extractor output jsonl: {id, events}")
-    ap.add_argument("--asr", help="ASR output jsonl: {id, condition, text}")
+    ap.add_argument("--pred", help="extractor output jsonl: {id, events[, condition]}")
+    ap.add_argument("--asr", help="ASR output jsonl: {id, condition, text, raw_text}")
     ap.add_argument("--asr-field", default="text", help="'text' (after lexicon fix) or 'raw_text' (straight ASR)")
+    ap.add_argument("--conditions", nargs="*", help="only score these ASR conditions (e.g. --conditions tts)")
+    ap.add_argument("--same-utts-as", help="another ASR jsonl; fail unless both cover identical (condition, id) sets")
+    ap.add_argument("--show-ids", nargs="*", default=[], help="print every condition's transcript for these ids")
     ap.add_argument("--only-recorded", action="store_true", help="score only cases in the recording subset")
     ap.add_argument("--time-tol", type=float, default=60, help="seconds of slack for time_said")
     ap.add_argument("--label", help="append this run to eval/results/history.csv")
@@ -342,21 +452,45 @@ def main():
 
     gold = load_jsonl(a.gold)
     res = stats = None
+    sources = {}
+    pred_cond = None
     if a.pred:
         pred = load_jsonl(a.pred)
+        check_preds(gold, pred)
+        pred_cond = pred[0].get("condition")
         g = gold
         if a.only_recorded:
             g = [x for x in g if x.get("record")]
-        if a.asr:  # ASR-based preds only exist for recorded cases
+        if a.asr or pred_cond:  # ASR-based preds only exist for recorded cases
             ids = {p["id"] for p in pred}
             g = [x for x in g if x["id"] in ids]
+        print(f"extraction: {len(pred)} predictions from {a.pred}"
+              + (f" (condition {pred_cond})" if pred_cond else "") + f", {len(g)} gold cases matched")
         res = score_extraction(g, pred, a.time_tol)
         report_extraction(res, show_errors=a.errors)
+        sources.update(pred_file=Path(a.pred).name, condition=pred_cond or "")
     if a.asr:
-        stats, worst = score_asr(gold, load_jsonl(a.asr), a.asr_field)
-        report_asr(stats, worst)
+        conds = a.conditions
+        if pred_cond:  # the ASR numbers logged next to an extraction score must be for the same audio
+            if conds and conds != [pred_cond]:
+                raise SystemExit(f"--conditions {conds} disagrees with prediction condition {pred_cond!r}")
+            conds = [pred_cond]
+        asr = load_asr(a.asr, a.asr_field, conds)
+        check_asr(gold, asr, a.asr_field)
+        if pred_cond and {r["id"] for r in asr} != {p["id"] for p in pred}:
+            raise SystemExit(f"ASR ids for {pred_cond} differ from prediction ids")
+        if a.same_utts_as:
+            other = load_asr(a.same_utts_as, a.asr_field, conds)
+            mine, theirs = {(r["condition"], r["id"]) for r in asr}, {(r["condition"], r.get("id")) for r in other}
+            if mine != theirs:
+                raise SystemExit(f"utterance sets differ from {a.same_utts_as}: only here {sorted(mine - theirs)[:5]}, "
+                                 f"only there {sorted(theirs - mine)[:5]}")
+            print(f"same utterances as {a.same_utts_as}: {len(mine)} (condition, id) pairs")
+        stats, detail = score_asr(gold, asr, a.asr_field)
+        report_asr(stats, detail, a.asr_field, a.show_ids)
+        sources.update(asr_file=Path(a.asr).name, asr_field=a.asr_field)
     if a.label:
-        append_history(a.label, res, stats)
+        append_history(a.label, res, stats, sources)
 
 
 if __name__ == "__main__":

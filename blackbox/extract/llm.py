@@ -214,11 +214,15 @@ def postprocess(data: dict, text: str, time_logged: datetime) -> tuple[list[dict
                 held.append({"status": e.get("status"), "drug": drug, "drug_as_spoken": e.get("drug_spoken"),
                              "evidence": e.get("evidence")})
                 continue
-            ev = {"event_type": "medication", "drug": drug, "drug_as_spoken": e.get("drug_spoken")}
             if drug is None:
                 reasons.append(f"unknown drug '{e.get('drug_spoken')}'")
+                ev = {"event_type": "clarification", "candidate_event_type": "medication", "drug": None,
+                      "drug_as_spoken": e.get("drug_spoken"), "resolution_required": ["drug"]}
             elif not _drug_in_text(drug, norm):
                 reasons.append("drug name not in transcript")
+                ev = {"event_type": "medication", "drug": drug, "drug_as_spoken": e.get("drug_spoken")}
+            else:
+                ev = {"event_type": "medication", "drug": drug, "drug_as_spoken": e.get("drug_spoken")}
             dose = e.get("dose")
             if dose is not None and dose > 0:
                 ev["dose"] = float(dose)

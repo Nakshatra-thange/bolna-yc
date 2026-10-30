@@ -1,0 +1,1 @@
+"""Black Box audit chain: signed, hash-chained, append-only record of everything said and extracted."""

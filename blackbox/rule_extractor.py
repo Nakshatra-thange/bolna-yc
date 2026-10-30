@@ -71,7 +71,9 @@ VITAL_PATTERNS = [
     ("gcs", re.compile(r"\bgcs" + _V + r"(\d{1,2})")),
     ("bgl_mg_dl", re.compile(r"\b(?:blood sugar|sugar|glucose|bgl|cbg|grbs)" + _V + r"(\d{2,3})(?!\s*(?:g|grams?)\b)")),
 ]
-
+NOT_DOSE_RE = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*(?:kg|kgs|kilos?|kilograms?|years?|yrs?|saal|months?|"
+                         r"minutes?|mins?|hours?|joules?|j|gauge|%|percent|over|by|/)(?![a-z])"
+                         r"|(?:weight|wazan|age|umar|aged)\s*(?:is|of|hai)?\s*\d+(?:\.\d+)?")
 CLAUSE_SPLIT = re.compile(r"\s+(?:and|then|phir|aur)\s+|;")
 
 
@@ -110,7 +112,9 @@ def _extract_med(clause: str) -> dict | None:
         raw = um.group(2)
         unit = next(u for u, p in UNIT_PATTERNS if re.fullmatch(p, raw))
     else:
-        nums = [_num(x) for x in NUM_RE.findall(rest) if _num(x) > 0]
+                # numbers that are weights / ages / times / energies are never doses ("weight seventy kilos")
+        rest_nd = NOT_DOSE_RE.sub(" ", rest)
+        nums = [_num(x) for x in NUM_RE.findall(rest_nd) if _num(x) > 0]
         if nums:
             dose = nums[0]
             unit = BOOK.p.drugs[drug].canonical_unit  # implied unit ("aspirin three twenty four")
@@ -158,6 +162,24 @@ def extract(text: str, time_logged: datetime) -> list[dict]:
     for ev in events:
         ev["time_said"], ev["time_source"] = t_said.isoformat(), t_src
     return events
+
+
+def select_rows(rows: list[dict], condition: str | None, text_field: str) -> list[dict]:
+    """Select a single ASR condition and fail clearly on incomplete input."""
+    selected = rows
+    if condition is not None:
+        selected = [r for r in rows if r.get("condition") == condition]
+        if not selected:
+            conditions = sorted({str(r.get("condition")) for r in rows})
+            raise SystemExit(f"no rows with condition={condition!r}; available: {', '.join(conditions) or '(none)'}")
+    else:
+        conditions = {r.get("condition") for r in selected if r.get("condition") is not None}
+        if len(conditions) > 1:
+            raise SystemExit(f"input mixes conditions: {', '.join(sorted(map(str, conditions)))}; specify --condition")
+    for row in selected:
+        if text_field not in row:
+            raise SystemExit(f"row {row.get('id', '(unknown)')} lacks [{text_field!r}]")
+    return selected
 
 
 # ------------------------------------------------------------------ CLI

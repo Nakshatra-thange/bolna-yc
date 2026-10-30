@@ -1,6 +1,16 @@
-timestamp,label,headline_f1,event_f1,exact_match,hard_exact,drug_f1,dose_f1,unit_f1,route_f1,time_f1,wer_tts
-2026-10-25T11:01:04+00:00,rules-baseline,0.9732,0.9583,0.8824,0.5333,0.9825,0.9643,0.9881,0.9565,0.9735,
-2026-10-25T15:47:15+00:00,small: no bias,,,,,,,,,,0.5419
-2026-10-25T15:47:24+00:00,small: lexfix only,,,,,,,,,,0.4926
-2026-10-25T15:47:32+00:00,small: prompt+lexfix,,,,,,,,,,0.4076
-2026-10-25T15:47:40+00:00,small: hotwords+lexfix,,,,,,,,,,0.5419
+timestamp,label,headline_f1,event_f1,exact_match,hard_exact,drug_f1,dose_f1,unit_f1,route_f1,time_f1,wer_tts,unflagged_wrong_meds,flag_rate,wer_clean,wer_road_0db,wer_road_10db,wer_road_5db,wer_siren_0db,wer_siren_10db,wer_siren_5db,pred_file,asr_file,asr_field,condition,n_cases,n_clean,n_road_0db,n_road_10db,n_road_5db,n_siren_0db,n_siren_10db,n_siren_5db,n_tts
+2026-10-25T11:01:04+00:00,rules-baseline,0.9732,0.9583,0.8824,0.5333,0.9825,0.9643,0.9881,0.9565,0.9735,,,,,,,,,,,,,,,,,,,,,,,
+2026-10-25T15:47:15+00:00,small: no bias,,,,,,,,,,0.5419,,,,,,,,,,,,,,,,,,,,,,
+2026-10-25T15:47:24+00:00,small: lexfix only,,,,,,,,,,0.4926,,,,,,,,,,,,,,,,,,,,,,
+2026-10-25T15:47:32+00:00,small: prompt+lexfix,,,,,,,,,,0.4076,,,,,,,,,,,,,,,,,,,,,,
+2026-10-25T15:47:40+00:00,small: hotwords+lexfix,,,,,,,,,,0.5419,,,,,,,,,,,,,,,,,,,,,,
+2026-10-29T15:12:04+00:00,whisper-small,,,,,,,,,,,,,0.2985,0.3433,0.3284,0.3284,0.3433,0.0833,,,,,,,,,,,,,,
+2026-10-29T15:12:11+00:00,whisper-small+prompt,,,,,,,,,,0.4039,,,0.2985,0.4328,0.3731,0.4627,0.3582,0.3881,0.3731,,,,,,,,,,,,,
+2026-10-29T15:12:30+00:00,rules+asr-siren5,0.0,0.0,0.0,,,,,,,,0,,0.2985,0.3433,0.3284,0.3284,0.3433,0.0833,,,,,,,,,,,,,,
+2026-10-29T15:37:45+00:00,whisper-small,,,,,,,,,,0.4729,,,0.2985,0.3433,0.3284,0.3284,0.3433,0.3134,0.3284,,asr_fw-small_none.jsonl,text,,,9,9,9,9,9,9,9,119
+2026-10-29T15:37:45+00:00,whisper-small+prompt,,,,,,,,,,0.4039,,,0.2985,0.4328,0.3731,0.4627,0.3582,0.3881,0.3731,,asr_fw-small_prompt.jsonl,text,,,9,9,9,9,9,9,9,119
+2026-10-29T15:37:46+00:00,whisper-small+hotwords,,,,,,,,,,0.5419,,,,,,,,,,,asr_fw-small_hotwords.jsonl,text,,,,,,,,,,119
+2026-10-29T15:37:52+00:00,rules+asr-siren5,0.6909,0.6667,0.4444,0.0,0.5455,0.8,0.6,0.6667,0.8,,2,0.0,,,,,,,0.3284,rules_siren5.jsonl,asr_fw-small_none.jsonl,text,siren_5db,9,,,,,,,9,
+2026-10-29T16:00:23+00:00,qwen3b_siren5,0.75,0.875,0.3333,0.0,0.4444,0.9091,0.6,0.9091,0.8,0.4729,0,0.6,0.2985,0.3433,0.3284,0.3284,0.3433,0.3134,0.3284,ext_qwen3b_siren5_siren_5db.jsonl,asr_fw-small_none.jsonl,text,,9,9,9,9,9,9,9,9,119
+2026-10-29T16:02:47+00:00,rules,0.9732,0.9583,0.8824,0.5333,0.9825,0.9643,0.9881,0.9565,0.9735,,2,0.2989,,,,,,,,ext_rules.jsonl,,,,119,,,,,,,,
+2026-10-29T16:10:30+00:00,hybrid qwen1.5b,0.9295,0.9811,0.6923,,1.0,0.9143,0.8571,0.8952,0.9811,,4,0.3962,,,,,,,,ext_hybrid_qwen2.5-1.5b-instruct-q4_k_m.jsonl,,,,52,,,,,,,,

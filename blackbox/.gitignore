@@ -1,2 +1,60 @@
-.venv
-__pycache__
+# ---------- Python / tooling
+.venv/
+venv/
+.venv-arm/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.ipynb_checkpoints/
+
+# ---------- OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ---------- Model weights (huge - download them, never commit)
+models/
+*.gguf
+*.bin
+*.onnx
+*.tar.bz2
+*.safetensors
+
+# ---------- Runtime data: chain DB, voice clips, incident logs (patient-like data, never commit)
+runs/
+*.db
+*.db-wal
+*.db-shm
+*.tampered.db
+*_audio/
+*.wav
+*.wav.enc
+*.mp3
+*.m4a
+
+# ---------- Keys (private keys must never leave the device)
+keys/
+.blackbox/
+*.key
+*.pem
+device_pubkey.txt
+
+# ---------- Eval artifacts (regenerable)
+eval/data/audio/
+eval/data/scene_tts.wav
+eval/preds/
+# eval/results/history.csv is small and useful for the pitch - keep it tracked
+
+# ---------- Licensed clinical datasets (DUA forbids sharing / posting on GitHub)
+n2c2/
+mimic/
+data/n2c2/
+data/mimic/
+
+# ---------- Secrets
+.env
+.env.*

@@ -1,6 +1,8 @@
 """Tests for Phase 2 extraction: LLM post-processing, hybrid safety policy, confirmation.
 No model needed: a scripted fake LLM returns fixed JSON.   python -m pytest -q"""
 import json
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -48,6 +50,14 @@ def meds(events):
     return [e for e in events if e["event_type"] == "medication"]
 
 
+def test_hybrid_imports_as_package_and_module():
+    for code in ("import extract.hybrid",):
+        result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+    result = subprocess.run([sys.executable, "-m", "extract.hybrid"], cwd=ROOT, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
 # ------------------------------------------------------------------ schema / prompt
 def test_schema_compiles_to_llama_grammar():
     llama_grammar = pytest.importorskip("llama_cpp.llama_grammar")
@@ -89,6 +99,29 @@ def test_inferred_dose_needs_confirmation():
     assert e["dose"] == 25 and e["needs_confirmation"] and "not spoken" in e["confirm_reasons"][0]
 
 
+def test_spoken_am_pm_time_is_preserved_and_displayed_as_event_time(capsys):
+    logged = TL.replace(hour=18, minute=0)
+    (event,), _ = postprocess({"events": [ev(drug_spoken="aspirin", dose=100, unit="mg", route="PO",
+                                                time_phrase="at 5 PM")]},
+                             "give aspirin 100 milligrams orally at 5 PM", logged)
+    assert event["time_source"] == "explicit"
+    assert event["time_said"] == logged.replace(hour=17).isoformat()
+    from asr.live import Pipeline
+    Pipeline._print(object.__new__(Pipeline), {
+        "seq": 1, "time_logged": logged.isoformat(), "audio_s": 1.0, "latency_s": 0.1,
+        "corrections": [], "text": "aspirin 100 mg PO at 5 PM", "asr_confidence": 1.0,
+        "events": [event], "extract_meta": {},
+    }, False)
+    assert "@ 17:00:00" in capsys.readouterr().out
+
+
+def test_ambiguous_bare_hour_does_not_override_logged_time():
+    (event,), _ = postprocess({"events": [ev(drug_spoken="aspirin", dose=100, unit="mg", route="PO",
+                                                time_phrase="at 5")]},
+                             "give aspirin 100 milligrams orally at 5", TL)
+    assert event["time_source"] == "logged" and event["time_said"] == TL.isoformat()
+
+
 def test_hallucinated_drug_needs_confirmation():
     (e,), _ = postprocess({"events": [ev(drug_spoken="morphine", dose=4, unit="mg", route="IV")]}, "gave 4 mg IV", TL)
     assert "drug name not in transcript" in e["confirm_reasons"]
@@ -98,8 +131,41 @@ def test_unknown_drug_and_off_protocol_route():
     (a, b), _ = postprocess({"events": [ev(drug_spoken="ketorolac", dose=30, unit="mg", route="IV"),
                                          ev(drug_spoken="aspirin", dose=325, unit="mg", route="IV")]},
                             "ketorolac 30 mg IV and aspirin 325 mg IV", TL)
+    assert a["event_type"] == "clarification" and "drug" in a["resolution_required"]
     assert a["drug"] is None and a["needs_confirmation"]
     assert any("route IV not in protocol" in r for r in b["confirm_reasons"])
+
+
+def test_live_unknown_drug_candidate_requires_explicit_name_resolution(tmp_path):
+    from asr.engine import Transcript
+    from asr.live import Pipeline
+    from asr.vad import Clip
+
+    class Engine:
+        said = iter(["Give the patient", "aspirin"])
+
+        def transcribe(self, audio):
+            return Transcript(text=next(self.said), audio_s=1.0, engine="fake")
+
+    class Extractor:
+        def extract(self, text, time_logged, asr=None):
+            return ([{"event_type": "clarification", "candidate_event_type": "medication", "drug": None,
+                      "resolution_required": ["drug"], "time_said": time_logged.isoformat(),
+                      "time_source": "logged", "needs_confirmation": True,
+                      "confirm_reasons": ["unknown drug 'None'", "no dose", "no route"]}],
+                    {"source": "hybrid", "held": []})
+
+    pipe = Pipeline(Engine(), "INC-UNKNOWN", tmp_path, keys_dir=tmp_path / "keys", extractor=Extractor())
+    clip = Clip(np.zeros(16000, np.float32), 0, 1)
+    first = pipe.handle(clip, TL)
+    assert first["events"][0]["event_type"] == "clarification"
+    assert not any(json.loads(e.body)["kind"] == "event" for e in pipe.chain.entries())
+
+    resolved = pipe.handle(clip, TL + timedelta(seconds=2))
+    med = resolved["events"][0]
+    assert resolved["type"] == "resolution" and med["event_type"] == "medication"
+    assert med["drug"] == "aspirin" and med["needs_confirmation"]
+    assert any(json.loads(e.body)["kind"] == "event" for e in pipe.chain.entries())
 
 
 def test_implied_unit_and_spoken_number_words():
@@ -212,6 +278,13 @@ def test_queue_latest_first_and_expiry():
     assert exp == {"action": "unconfirmed", "event_id": "e1", "at": (TL + timedelta(seconds=70)).isoformat(), "said": ""}
 
 
+def test_unknown_medication_cannot_be_confirmed_before_name_resolution():
+    q = ConfirmationQueue()
+    q.add("e1", {"event_type": "clarification", "resolution_required": ["drug"]}, TL)
+    result = q.handle("confirm", TL + timedelta(seconds=1), said="confirm")
+    assert result["action"] == "needs_resolution" and "e1" in q.pending
+
+
 def test_live_pipeline_dictation_then_spoken_confirm(tmp_path):
     from asr.engine import Transcript
     from asr.live import Pipeline
@@ -224,7 +297,7 @@ def test_live_pipeline_dictation_then_spoken_confirm(tmp_path):
         def transcribe(self, audio):
             return Transcript(text=next(self.said), audio_s=1.0, engine="fake")
 
-    pipe = Pipeline(Engine(), "INC-C", tmp_path, extractor=hybrid(
+    pipe = Pipeline(Engine(), "INC-C", tmp_path, keys_dir=tmp_path / "keys", extractor=hybrid(
         {"fentanyl 50 mcg IV": {"events": [ev(drug_spoken="fentanyl", dose=50, unit="mcg", route="IV")]}}))
     clip = Clip(np.zeros(16000, np.float32), 0, 1)
     r1 = pipe.handle(clip, TL)
@@ -254,3 +327,8 @@ def test_silent_llm_never_worse_than_rules_and_nothing_unflagged():
     rul = score_extraction(rows, [{"id": c["id"], "events": rule_extract(c["text"], tl(c))} for c in rows])
     assert hyb["headline"].f1 == rul["headline"].f1
     assert hyb["safety"]["wrong"] == hyb["safety"]["wrong_flagged"]
+
+def test_unit_disagreement_is_flagged():
+    t = "patient received ondansetron four migs through the line"
+    events, _ = hybrid({t: {"events": [ev(drug_spoken="ondansetron", dose=4, unit="mL", route="IV")]}}).extract(t, TL)
+    assert "rules heard unit mg" in meds(events)[0]["confirm_reasons"]

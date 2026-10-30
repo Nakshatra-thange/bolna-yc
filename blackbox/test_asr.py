@@ -98,6 +98,22 @@ def test_vad_ignores_silence_and_noise():
     assert seg.feed(noise) + seg.flush() == []
 
 
+def test_mic_capture_is_paused_during_spoken_prompt():
+    import queue
+    from asr.live import MicCaptureGate
+
+    q = queue.Queue()
+    gate = MicCaptureGate(q)
+    block = np.ones((1600, 1), np.float32)
+    gate.callback(block)
+    assert q.qsize() == 1
+
+    gate.during_playback(lambda _: gate.callback(block), "confirmation prompt")
+    assert q.qsize() == 1
+    gate.callback(block)
+    assert q.qsize() == 2
+
+
 class FakeEngine:
     name = "fake"
 
@@ -108,9 +124,9 @@ class FakeEngine:
 def test_pipeline_logs_raw_fixed_hash_and_events(tts, tmp_path):
     from asr.live import Pipeline
     from asr.vad import Clip
-    pipe = Pipeline(FakeEngine(), "INC-T", tmp_path, extract=True)
+    pipe = Pipeline(FakeEngine(), "INC-T", tmp_path, extract=True, keys_dir=tmp_path / "keys")
     rec = pipe.handle(Clip(tts.say("morphine four milligrams IV"), 0.0, 2.0), datetime.now(timezone.utc))
     assert rec["raw_text"].startswith("pushing for") and "4 milligrams morphine IV" in rec["text"]
-    assert len(rec["audio_sha256"]) == 64 and (tmp_path / "INC-T" / rec["clip_path"]).exists()
+    assert len(rec["audio_sha256"]) == 64 and (tmp_path / rec["clip_path"]).exists()
     med = [e for e in rec["events"] if e["event_type"] == "medication"][0]
     assert (med["drug"], med["dose"], med["route"]) == ("morphine", 4, "IV")

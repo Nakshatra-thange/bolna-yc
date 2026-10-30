@@ -1,0 +1,1 @@
+"""Black Box Guardian: live protocol checks ("second pair of ears") with spoken alerts and audited overrides."""

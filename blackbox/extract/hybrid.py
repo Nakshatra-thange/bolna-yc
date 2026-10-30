@@ -13,15 +13,12 @@ Policy (every rule here is a sentence you can say to a judge):
 """
 from __future__ import annotations
 
-import sys
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from protocol import ProtocolBook, to_canonical  # noqa: E402
-from rule_extractor import extract as rule_extract  # noqa: E402
+from protocol import ProtocolBook, to_canonical
+from rule_extractor import extract as rule_extract
 
 BOOK = ProtocolBook.load()
 ASR_CONF_MIN = 0.60

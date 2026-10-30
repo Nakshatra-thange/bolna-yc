@@ -40,6 +40,8 @@ def parse_command(text: str) -> Optional[str]:
 
 
 def speakable(ev: dict) -> str:
+    if ev.get("event_type") == "clarification" and "drug" in ev.get("resolution_required", []):
+        return "Medication name unknown. Say the medication name, or say cancel."
     if ev["event_type"] == "medication":
         dose = ev.get("dose")
         d = "" if dose is None else (f"{dose:g} " + UNIT_WORDS.get(ev.get("unit", ""), ev.get("unit", "")))
@@ -64,9 +66,27 @@ class ConfirmationQueue:
     def handle(self, command: str, now: datetime, said: str = "") -> Optional[dict]:
         if not self.pending:
             return None
-        event_id, (ev, _) = self.pending.popitem(last=True)
+        event_id, (ev, _) = next(reversed(self.pending.items()))
+        if command == "confirm" and "drug" in ev.get("resolution_required", []):
+            return {"action": "needs_resolution", "event_id": event_id, "at": now.isoformat(), "said": said}
+        self.pending.popitem(last=True)
         return {"action": "confirmed" if command == "confirm" else "cancelled", "event_id": event_id,
                 "at": now.isoformat(), "said": said}
+
+    def resolve_latest_drug(self, text: str) -> Optional[tuple[dict, str]]:
+        """Resolve the newest missing-drug candidate from an explicit drug-name reply."""
+        if not self.pending:
+            return None
+        event_id, (ev, _) = next(reversed(self.pending.items()))
+        if "drug" not in ev.get("resolution_required", []):
+            return None
+        phrase = re.sub(r"^(?:(?:the )?(?:drug|medicine) is)\s+", "", text.strip(), flags=re.I)
+        from protocol import ProtocolBook
+        drug = ProtocolBook.load().resolve_drug(phrase)
+        if not drug:
+            return None
+        del self.pending[event_id]
+        return dict(ev), drug
 
     def expire(self, now: datetime) -> list[dict]:
         out = []
