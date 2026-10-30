@@ -1,0 +1,1 @@
+"""Black Box live web demo: speak or type into a black page and watch the real pipeline log it."""

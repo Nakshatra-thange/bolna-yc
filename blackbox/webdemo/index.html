@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Box Live</title>
+<meta name="theme-color" content="#040404">
+<style>
+:root{
+  --bg:#040404; --panel:#0b0b0c; --panel2:#111113; --line:#1d1d21; --text:#ededee; --dim:#8b8b93; --faint:#55555c;
+  --green:#3ddc84; --amber:#ffb020; --red:#ff4d4f; --blue:#7ab0ff;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace; --sans:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.18em;font-size:15px}
+.brand small{font-weight:400;letter-spacing:.02em;color:var(--dim);font-size:13px}
+.rec{width:10px;height:10px;border-radius:50%;background:var(--red);box-shadow:0 0 12px var(--red);animation:blink 1.6s infinite}
+.hchips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:12px var(--mono);padding:5px 10px;border:1px solid var(--line);border-radius:999px;color:var(--dim);background:var(--panel);white-space:nowrap}
+.chip b{color:var(--text);font-weight:600}
+.chip.ok{color:var(--green);border-color:#17402b}.chip.bad{color:var(--red);border-color:#4a1b1c}.chip.warn{color:var(--amber);border-color:#4a3510}
+main{display:grid;grid-template-columns:310px minmax(0,1fr) 350px;gap:16px;padding:16px 20px 40px;align-items:start}
+@media (max-width:1150px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.panel h2{margin:0 0 12px;font:600 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.stack{display:grid;gap:16px}
+
+/* ---- mic orb */
+.micwrap{display:grid;justify-items:center;gap:10px;text-align:center}
+#orb{width:112px;height:112px;border-radius:50%;border:1px solid #2a2a30;background:radial-gradient(circle at 35% 30%,#2b2b31,#0c0c0e 70%);display:grid;place-items:center;transition:.2s;position:relative}
+#orb svg{width:38px;height:38px;fill:none;stroke:var(--text);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#orb.listening{border-color:var(--green);box-shadow:0 0 0 6px rgba(61,220,132,.07),0 0 40px rgba(61,220,132,.18)}
+#orb.hearing{border-color:var(--red);box-shadow:0 0 0 10px rgba(255,77,79,.10),0 0 54px rgba(255,77,79,.35);background:radial-gradient(circle at 35% 30%,#3a1517,#120708 70%)}
+#orb.thinking{border-color:var(--amber);animation:pulse 1.1s infinite}
+#orb:disabled{opacity:.35;cursor:not-allowed}
+#status{font:13px var(--mono);color:var(--dim);min-height:20px}
+.meter{width:100%;height:4px;background:#161618;border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--green);transition:width .08s}
+.hint{font-size:12px;color:var(--faint);line-height:1.5}
+kbd{font:11px var(--mono);border:1px solid #2c2c32;border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--dim)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid #26262b;border-radius:9px;padding:8px 12px;font-size:13px;transition:.15s}
+.btn:hover{border-color:#3b3b44;background:#17171a}
+.btn.primary{border-color:#1d5a3a;color:var(--green)}
+.btn.danger{border-color:#5a2223;color:#ff8486}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+form{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;background:#08080a;border:1px solid #26262b;border-radius:9px;padding:10px 12px;color:var(--text);font:14px var(--sans)}
+.glabel{font:11px var(--mono);color:var(--faint);letter-spacing:.1em;text-transform:uppercase;margin:12px 0 6px}
+.phr{display:flex;flex-wrap:wrap;gap:6px}
+.phr button{font-size:12.5px;padding:6px 10px;border-radius:999px;background:#0e0e10;border:1px solid #232328;color:#cfcfd4;text-align:left}
+.phr button:hover{border-color:#3d3d46;background:#151518}
+
+/* ---- feed */
+#feed{display:grid;gap:12px}
+.empty{color:var(--faint);padding:42px 16px;text-align:center;font-size:14px;line-height:1.7;border:1px dashed #222228;border-radius:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:3px solid #2b2b31;border-radius:12px;padding:14px 16px;animation:in .25s ease-out}
+.card.alert{border-left-color:var(--red)} .card.warn{border-left-color:var(--amber)} .card.cmd{border-left-color:var(--blue)} .card.ok{border-left-color:var(--green)}
+.card.pending{border-left-color:var(--amber);opacity:.85}
+.meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font:11.5px var(--mono);color:var(--faint);margin-bottom:8px}
+.badge{padding:2px 8px;border-radius:999px;border:1px solid #2a2a30;color:var(--dim)}
+.badge.voice{color:var(--green);border-color:#1b4a31}
+.said{font-size:19px;line-height:1.35;font-weight:500;letter-spacing:.005em;overflow-wrap:anywhere}
+.raw{font:12px var(--mono);color:var(--faint);margin-top:6px;overflow-wrap:anywhere}
+.fix{color:var(--amber)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.pill{font:13px var(--mono);padding:6px 10px;border-radius:8px;background:#0f1612;border:1px solid #1d3a2a;color:#9ff0c2}
+.pill.conf{background:#17120a;border-color:#4a3510;color:#ffc766}
+.pill.vital{background:#0c1220;border-color:#1c2f55;color:#a9c8ff}
+.note{margin-top:10px;padding:9px 12px;border-radius:9px;font-size:13.5px;line-height:1.45}
+.note.crit{background:#1c0b0c;border:1px solid #5a2223;color:#ffb3b4}
+.note.warning{background:#1a1408;border:1px solid #4a3510;color:#ffd58a}
+.note.info{background:#0d1320;border:1px solid #1c2f55;color:#b9d0ff}
+.note.say{background:#0d0d10;border:1px dashed #2a2a31;color:#c8c8d0}
+.note.good{background:#0b1710;border:1px solid #1b4a31;color:#9ff0c2}
+.note b{font-family:var(--mono);font-size:12px;letter-spacing:.04em}
+
+/* ---- right column */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px}
+.kv span:nth-child(odd){color:var(--dim)}
+.tag{display:inline-block;margin:0 6px 4px 0;padding:2px 8px;border-radius:6px;background:#2a1213;border:1px solid #5a2223;color:#ff9b9d;font:12px var(--mono)}
+.rec-item{padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.rec-item:first-child{border-top:0}
+.rec-item .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.st{font:11px var(--mono);padding:2px 8px;border-radius:999px;border:1px solid #2a2a30;color:var(--dim)}
+.st.recorded,.st.confirmed{color:var(--green);border-color:#1b4a31}.st.pending{color:var(--amber);border-color:#4a3510}.st.cancelled{color:var(--faint)}
+.rec-item.cancelled .nm{text-decoration:line-through;color:var(--faint)}
+.rec-sub{font-size:12px;color:var(--dim);margin-top:3px}
+.verdict{display:flex;gap:12px;align-items:center}
+.verdict .big{font-size:17px;font-weight:600}
+.verdict .dot{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green)}
+.verdict.bad .dot{background:var(--red);box-shadow:0 0 14px var(--red)}
+.hash{font:12px var(--mono);color:var(--dim);overflow-wrap:anywhere;margin-top:8px}
+#result{margin-top:12px;font-size:13.5px;line-height:1.5}
+a{color:var(--blue)}
+
+@keyframes blink{50%{opacity:.35}}
+@keyframes pulse{50%{box-shadow:0 0 0 12px rgba(255,176,32,.12)}}
+@keyframes in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="rec" aria-hidden="true"></span>BLACK BOX <small>flight recorder for emergency care</small></div>
+  <div class="hchips">
+    <span class="chip ok" id="cLocal">● all processing on this device</span>
+    <span class="chip" id="cNet">network</span>
+    <span class="chip" id="cAsr">speech model</span>
+    <span class="chip" id="cInc">incident</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: input -->
+  <div class="stack">
+    <section class="panel">
+      <h2>Speak</h2>
+      <div class="micwrap">
+        <button id="orb" aria-label="Start or stop listening" title="Start / stop listening">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <div id="status" role="status" aria-live="polite">Tap the mic to start</div>
+        <div class="meter" aria-hidden="true"><i id="lvl"></i></div>
+        <div class="hint">Hands-free: just talk, pause, and it logs. Or hold <kbd>Space</kbd> to push-to-talk. Pauses of about 1 s end a sentence.</div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Type or tap</h2>
+      <form id="form" autocomplete="off">
+        <input type="text" id="txt" placeholder="e.g. gave adrenaline one milligram IV" aria-label="Type a dictation">
+        <button class="btn primary" type="submit">Log</button>
+      </form>
+      <div id="phrases"></div>
+    </section>
+    <section class="panel">
+      <h2>Session</h2>
+      <div class="row">
+        <button class="btn primary" id="bPlay">▶ Play demo</button>
+        <button class="btn" id="bMute">🔊 Voice on</button>
+        <button class="btn" id="bNew">New incident</button>
+      </div>
+      <div class="hint" style="margin-top:10px">“Play demo” types a scripted incident (English + Hinglish) through the same pipeline, a safe fallback if the room is noisy.</div>
+    </section>
+  </div>
+
+  <!-- MIDDLE: live log -->
+  <section class="panel">
+    <h2>Live log</h2>
+    <div id="feed" aria-live="polite">
+      <div class="empty" id="empty">Nothing recorded yet.<br>Say <b>“patient weight seventy kilos, allergic to aspirin”</b>, then <b>“gave adrenaline one milligram IV”</b>.<br>Hindi works too: <b>“morphine do milligram IV diya”</b>.</div>
+    </div>
+  </section>
+
+  <!-- RIGHT: record + integrity -->
+  <div class="stack">
+    <section class="panel">
+      <h2>Patient (from speech)</h2>
+      <div class="kv" id="patient"></div>
+    </section>
+    <section class="panel">
+      <h2>Clinical record</h2>
+      <div id="record"><div class="hint">No events yet.</div></div>
+    </section>
+    <section class="panel">
+      <h2>Integrity</h2>
+      <div class="verdict" id="verdict"><span class="dot"></span><span class="big">…</span></div>
+      <div class="hash" id="head"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn danger" id="bCheat">Try to cheat</button>
+        <button class="btn" id="bSync">Sync to hospital</button>
+      </div>
+      <div id="result"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const t2 = (d = new Date()) => d.toTimeString().slice(0, 8);
+const short = (h, n = 10) => (h || "").slice(0, n);
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  let j = null; try { j = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error((j && j.detail) || r.statusText);
+  return j;
+}
+
+/* ---------------------------------------------------------------- header chips */
+function netChip() {
+  const c = $("cNet");
+  if (navigator.onLine) { c.className = "chip"; c.innerHTML = "network: <b>online</b> (not used)"; }
+  else { c.className = "chip ok"; c.innerHTML = "network: <b>OFFLINE</b> — still working"; }
+}
+addEventListener("online", netChip); addEventListener("offline", netChip); netChip();
+
+/* ---------------------------------------------------------------- speaking (read-back) */
+let muted = false, ttsBusy = false, ttsUntil = 0;
+function speakLines(lines) {
+  if (muted || !lines || !lines.length || !("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(lines.join(". "));
+  const all = speechSynthesis.getVoices(), vs = all.filter(x => x.localService).length ? all.filter(x => x.localService) : all;  // prefer on-device voices (offline)
+  const v = vs.find(x => /en[-_]IN/i.test(x.lang)) || vs.find(x => /^en/i.test(x.lang));
+  if (v) u.voice = v;
+  u.rate = 1.05;
+  const done = () => { ttsBusy = false; ttsUntil = performance.now() + 600; };
+  u.onend = done; u.onerror = done;
+  ttsBusy = true; speechSynthesis.speak(u);
+}
+const deviceTalking = () => ttsBusy || performance.now() < ttsUntil;
+$("bMute").onclick = () => { muted = !muted; if (muted) speechSynthesis.cancel(); $("bMute").textContent = muted ? "🔇 Voice off" : "🔊 Voice on"; };
+
+/* ---------------------------------------------------------------- rendering */
+function pillsFor(u) {
+  const out = [];
+  for (const e of u.events || []) {
+    if (e.event_type === "medication") {
+      const dose = e.dose != null ? `${e.dose} ${e.unit || ""}` : "dose ?";
+      const p = el("span", "pill" + (e.needs_confirmation ? " conf" : ""), `${(e.drug || e.drug_as_spoken || "?").replace("_", " ")} · ${dose} · ${e.route || "route ?"}`);
+      if (e.needs_confirmation) p.title = (e.confirm_reasons || []).join("; ");
+      out.push(p);
+    } else if (e.event_type === "vital") {
+      out.push(el("span", "pill vital", vitalText(e.vital || {})));
+    } else if (e.event_type === "procedure") {
+      const j = e.params && e.params.joules ? ` · ${e.params.joules} J` : "";
+      out.push(el("span", "pill vital", (e.procedure || "procedure").replace("_", " ") + j));
+    }
+  }
+  return out;
+}
+
+function vitalText(v) {
+  const parts = [];
+  if (v.sbp != null) parts.push(`BP ${v.sbp}/${v.dbp ?? "?"}`);
+  if (v.hr != null) parts.push(`HR ${v.hr}`); if (v.spo2 != null) parts.push(`SpO₂ ${v.spo2}%`);
+  if (v.rr != null) parts.push(`RR ${v.rr}`); if (v.gcs != null) parts.push(`GCS ${v.gcs}`); if (v.bgl_mg_dl != null) parts.push(`BGL ${v.bgl_mg_dl}`);
+  return parts.join(" · ") || "vital";
+}
+
+function renderUtterance(u, node) {
+  node.className = "card";
+  node.replaceChildren();
+  const meta = el("div", "meta");
+  meta.append(el("span", null, `#${u.seq}`), el("span", null, t2()));
+  if (u.source === "voice") {
+    const b = el("span", "badge voice", `🎙 voice · ${u.audio_s}s · ASR ${u.latency_s}s · conf ${Math.round((u.confidence || 0) * 100)}%`);
+    meta.append(b, el("span", null, `clip sealed ${short(u.clip_sha256, 8)}…`));
+  } else meta.append(el("span", "badge", "⌨ typed · no voice clip"));
+  if (u.chain_seq != null) meta.append(el("span", null, `chain #${u.chain_seq}`));
+  node.append(meta, el("div", "said", u.text || "(nothing heard)"));
+
+  if (u.fixes && u.fixes.length) {
+    const r = el("div", "raw"); r.append(document.createTextNode("heard: " + u.raw_text + "  →  "));
+    u.fixes.forEach((f, i) => { const s = el("span", "fix", `${f.heard}→${f.fixed}`); r.append(s); if (i < u.fixes.length - 1) r.append(", "); });
+    node.append(r);
+  }
+  const pills = pillsFor(u);
+  if (pills.length) { const p = el("div", "pills"); p.append(...pills); node.append(p); }
+  for (const e of u.events || []) if (e.needs_confirmation && e.confirm_reasons && e.confirm_reasons.length)
+    node.append(noteBox("warning", "NEEDS CONFIRMATION", e.confirm_reasons.join("; ")));
+  for (const h of u.held || []) node.append(noteBox("info", "NOT LOGGED AS GIVEN", `${h.drug_as_spoken || "?"} — ${h.status || ""}`));
+  for (const a of u.alerts || []) node.append(noteBox(a.severity === "critical" ? "crit" : a.severity, `GUARDIAN · ${a.rule_id}`, a.message));
+  if (u.type === "command" && u.confirmation) {
+    node.classList.add("cmd");
+    node.append(noteBox("info", "SPOKEN COMMAND", `${u.confirmation.action.toUpperCase()} · ${u.confirmation.event_id}`));
+  }
+  if (u.alert_response) for (const r of u.alert_response) {
+    node.classList.add("cmd");
+    node.append(noteBox(r.action === "need_reason" ? "warning" : "good", "ALERT ANSWER", `${r.alert_id || ""} ${r.rule_id || ""} → ${String(r.action).toUpperCase()}${r.reason ? " — reason: " + r.reason : ""}`));
+  }
+  if (u.type === "alert_response_incomplete") node.append(noteBox("warning", "ALERT ANSWER", "Override needs a reason. Say “override, <reason>”."));
+  if (u.say && u.say.length) node.append(noteBox("say", "🔊 DEVICE SAYS", u.say.join(" ")));
+  if ((u.alerts || []).some(a => a.severity === "critical")) node.classList.add("alert");
+  else if ((u.alerts || []).length || (u.events || []).some(e => e.needs_confirmation)) node.classList.add("warn");
+  else if ((u.events || []).length) node.classList.add("ok");
+}
+function noteBox(kind, label, text) { const n = el("div", "note " + kind); n.append(el("b", null, label + "  "), document.createTextNode(text)); return n; }
+
+function feedAdd(node) { const e = $("empty"); if (e) e.remove(); $("feed").prepend(node); }
+
+function renderState(st) {
+  $("cInc").innerHTML = `incident <b>${st.incident}</b>`;
+  const c = $("cAsr");
+  if (st.asr.ready) { c.className = "chip ok"; c.innerHTML = `speech: <b>${st.asr.model}</b> (${st.asr.language})${st.asr.llm ? " + LLM" : ""}`; }
+  else { c.className = "chip warn"; c.innerHTML = "speech model: <b>off</b> (typing works)"; c.title = st.asr.error || ""; }
+  $("orb").disabled = !st.asr.ready;
+  if (!st.asr.ready) $("status").textContent = "Speech model not loaded: type or tap a phrase";
+
+  const v = $("verdict"), ok = st.chain.ok;
+  v.className = "verdict" + (ok ? "" : " bad");
+  v.querySelector(".big").textContent = ok ? "Chain verified" : `Entry #${st.chain.first_bad} fails`;
+  $("head").textContent = `${st.chain.entries} signed entries · head #${st.chain.head_seq} ${short(st.chain.head_hash, 16)}…  device ${st.device_id}`;
+
+  const p = st.patient, kv = $("patient"); kv.replaceChildren();
+  kv.append(el("span", null, "Weight"), el("span", null, p.weight_kg != null ? p.weight_kg + " kg" : "—"));
+  kv.append(el("span", null, "Age"), el("span", null, p.age_years != null ? p.age_years + " y" : "—"));
+  kv.append(el("span", null, "Allergies"));
+  const al = el("span"); if (p.allergies.length) p.allergies.forEach(a => al.append(el("span", "tag", a))); else al.textContent = "—";
+  kv.append(al);
+  if (p.flags && p.flags.length) { kv.append(el("span", null, "Flags"), el("span", null, p.flags.join(", "))); }
+
+  const rec = $("record"); rec.replaceChildren();
+  if (!st.record.length) rec.append(el("div", "hint", "No events yet."));
+  for (const x of st.record) {
+    const e = x.event, it = el("div", "rec-item " + x.status);
+    const top = el("div", "top"), nm = el("span", "nm");
+    if (e.event_type === "medication") nm.textContent = `${(e.drug || "?").replace("_", " ")} ${e.dose ?? "?"} ${e.unit || ""} ${e.route || ""}`;
+    else if (e.event_type === "vital") nm.textContent = vitalText(e.vital || {});
+    else nm.textContent = (e.procedure || e.event_type).replace("_", " ") + (e.params && e.params.joules ? ` ${e.params.joules} J` : "");
+    top.append(nm, el("span", "st " + x.status, x.status)); it.append(top);
+    for (const a of x.alerts) it.append(el("div", "rec-sub", `⚠ ${a.rule_id}` + (a.response ? ` → ${a.response.action}${a.response.reason ? " (" + a.response.reason + ")" : ""}` : " → unanswered")));
+    rec.append(it);
+  }
+}
+async function refresh() { try { renderState(await api("/api/state")); } catch (e) { $("status").textContent = "server not reachable"; } }
+
+/* ---------------------------------------------------------------- sending */
+let queue = Promise.resolve();
+function send(path, init, label) {
+  const node = el("div", "card pending"); node.append(el("div", "meta", label), el("div", "said", "…"));
+  feedAdd(node);
+  queue = queue.then(async () => {
+    try {
+      const r = await fetch(path, init); const j = await r.json();
+      if (!r.ok) throw new Error(j.detail || r.statusText);
+      if (!j.utterance) { node.remove(); }
+      else { renderUtterance(j.utterance, node); speakLines(j.utterance.say); }
+      renderState(j.state);
+    } catch (e) { node.className = "card alert"; node.replaceChildren(el("div", "meta", "error"), el("div", "said", String(e.message || e))); }
+    setOrb();
+  });
+  return queue;
+}
+const sendText = (t) => send("/api/text", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: t})}, "typed · logging…");
+$("form").onsubmit = (ev) => { ev.preventDefault(); const t = $("txt").value.trim(); if (t) { $("txt").value = ""; sendText(t); } };
+
+/* ---------------------------------------------------------------- microphone + simple VAD */
+const M = {ctx: null, stream: null, proc: null, on: false, ptt: false, busy: 0, speaking: false, buf: [], pre: [], hang: 0, loud: 0, floor: 0.006, dur: 0};
+function setOrb(kind) {
+  const o = $("orb"); o.className = kind || (M.on ? (M.speaking ? "hearing" : "listening") : "");
+  const s = $("status");
+  if (!M.on) { if (!o.disabled) s.textContent = "Tap the mic to start"; return; }
+  if (M.busy > 0) { o.className = "thinking"; s.textContent = "Transcribing…"; return; }
+  s.textContent = deviceTalking() ? "Device is speaking…" : (M.speaking ? "Hearing you…" : "Listening… talk any time");
+}
+async function startMic() {
+  try {
+    M.stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true}});
+  } catch (e) { $("status").textContent = "Mic blocked: allow it in the browser (use http://localhost:8001)"; return; }
+  M.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = M.ctx.createMediaStreamSource(M.stream);
+  M.proc = M.ctx.createScriptProcessor(4096, 1, 1);
+  M.proc.onaudioprocess = (e) => onBlock(new Float32Array(e.inputBuffer.getChannelData(0)));
+  src.connect(M.proc); M.proc.connect(M.ctx.destination);
+  M.on = true; setOrb();
+}
+function stopMic() {
+  M.on = false; M.speaking = false; M.buf = []; M.pre = [];
+  try { M.proc.disconnect(); M.ctx.close(); M.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+  $("lvl").style.width = "0"; setOrb();
+}
+$("orb").onclick = () => (M.on ? stopMic() : startMic());
+
+function onBlock(b) {
+  let s = 0; for (let i = 0; i < b.length; i++) s += b[i] * b[i];
+  const rms = Math.sqrt(s / b.length), bd = b.length / M.ctx.sampleRate;
+  $("lvl").style.width = Math.min(100, rms * 600) + "%";
+  if (deviceTalking()) { M.speaking = false; M.buf = []; M.pre = []; M.loud = 0; setOrb(); return; }   // half-duplex: don't hear ourselves
+  const th = Math.max(0.014, M.floor * 3.2), hot = rms > th || M.ptt;
+  if (!M.speaking) {
+    M.pre.push(b); if (M.pre.length > 6) M.pre.shift();
+    if (!hot) { M.floor = 0.97 * M.floor + 0.03 * rms; M.loud = 0; return; }
+    if (++M.loud >= 2 || M.ptt) { M.speaking = true; M.buf = M.pre.slice(); M.pre = []; M.hang = 0; M.dur = M.buf.length * bd; setOrb(); }
+    return;
+  }
+  M.buf.push(b); M.dur += bd;
+  if (hot) M.hang = 0; else M.hang += bd;
+  if ((M.hang >= 0.95 && !M.ptt) || M.dur > 20) finishUtterance();
+}
+function finishUtterance() {
+  const bufs = M.buf, voiced = M.dur - M.hang;
+  M.speaking = false; M.buf = []; M.hang = 0; M.loud = 0; M.dur = 0;
+  if (voiced < 0.35) { setOrb(); return; }                       // a click or cough, not speech
+  const n = bufs.reduce((a, x) => a + x.length, 0), all = new Float32Array(n); let o = 0;
+  for (const x of bufs) { all.set(x, o); o += x.length; }
+  const ratio = M.ctx.sampleRate / 16000, len = Math.floor(n / ratio), pcm = new Int16Array(len);
+  for (let i = 0; i < len; i++) {                                  // box-filter downsample to 16 kHz
+    const a = Math.floor(i * ratio), z = Math.min(n, Math.floor((i + 1) * ratio)); let sum = 0;
+    for (let k = a; k < z; k++) sum += all[k];
+    const v = Math.max(-1, Math.min(1, sum / Math.max(1, z - a))); pcm[i] = v < 0 ? v * 32768 : v * 32767;
+  }
+  M.busy++; setOrb();
+  send("/api/voice", {method: "POST", headers: {"Content-Type": "application/octet-stream"}, body: pcm.buffer}, "🎙 voice · transcribing…")
+    .finally(() => { M.busy = Math.max(0, M.busy - 1); setOrb(); });
+}
+addEventListener("keydown", (e) => { if (e.code === "Space" && !e.repeat && M.on && document.activeElement.tagName !== "INPUT") { e.preventDefault(); M.ptt = true; } });
+addEventListener("keyup", (e) => { if (e.code === "Space" && M.ptt) { M.ptt = false; if (M.speaking) finishUtterance(); } });
+setInterval(() => { if (M.on) setOrb(); }, 400);
+
+/* ---------------------------------------------------------------- demo script, cheat, sync, new incident */
+let playing = false;
+$("bPlay").onclick = async () => {
+  if (playing) { playing = false; return; }
+  playing = true; $("bPlay").textContent = "■ Stop demo";
+  const lines = (await api("/api/phrases")).script;
+  for (const line of lines) {
+    if (!playing) break;
+    await sendText(line);
+    for (let i = 0; i < 40 && deviceTalking(); i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 1700));
+  }
+  playing = false; $("bPlay").textContent = "▶ Play demo";
+};
+$("bNew").onclick = async () => { speechSynthesis.cancel(); renderState(await api("/api/incident", {})); $("feed").replaceChildren(); $("result").replaceChildren(); };
+
+$("bCheat").onclick = async () => {
+  const r = $("result"); r.replaceChildren();
+  const j = await api("/api/tamper", {});
+  if (!j.ok) { r.append(noteBox("info", "TRY TO CHEAT", j.message)); return; }
+  r.append(noteBox(j.detected ? "crit" : "warning", j.detected ? "TAMPERING DETECTED" : "NOT DETECTED",
+    `Forged ${j.drug} dose ${j.old} → ${j.new} in entry #${j.seq}. Verification fails at entry #${j.first_bad}: ${(j.problems || []).join("; ")}. (Test ran on a copy; your real record is untouched.)`));
+};
+$("bSync").onclick = async () => {
+  const r = $("result"); r.replaceChildren(el("div", "hint", "Syncing…"));
+  const j = await api("/api/sync", {});
+  r.replaceChildren();
+  if (!j.ok) { r.append(noteBox("warning", "SYNC", j.message)); return; }
+  const n = noteBox("good", "SYNCED", `${j.accepted} new entries, ${j.clips} encrypted clips. Server anchor #${j.anchor_seq} ${short(j.anchor_hash, 12)}… `);
+  const a = el("a", null, "Open hospital dashboard"); a.href = j.dashboard; a.target = "_blank"; a.rel = "noopener"; n.append(a);
+  r.append(n); refresh();
+};
+
+/* ---------------------------------------------------------------- boot */
+(async function boot() {
+  const ph = await api("/api/phrases"), box = $("phrases");
+  for (const g of ph.groups) {
+    box.append(el("div", "glabel", g.label));
+    const w = el("div", "phr");
+    for (const t of g.items) { const b = el("button", null, t); b.type = "button"; b.onclick = () => sendText(t); w.append(b); }
+    box.append(w);
+  }
+  speechSynthesis && speechSynthesis.getVoices();
+  refresh();
+})();
+</script>
+</body>
+</html>
