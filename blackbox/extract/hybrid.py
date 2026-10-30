@@ -105,6 +105,8 @@ class HybridExtractor:
             rd, ld = _canon(r), _canon(e)
             if rd is not None and ld is not None and abs(rd - ld) > 1e-9:
                 _flag(e, f"rules heard dose {r['dose']:g} {r.get('unit', '')}".strip())
+            if r.get("unit") and e.get("unit") and r["unit"].lower() != e["unit"].lower():
+                _flag(e, f"rules heard unit {r['unit']}")
             if r.get("route") and e.get("route") and r["route"] != e["route"]:
                 _flag(e, f"rules heard route {r['route']}")
         held_drugs = {h.get("drug") for h in held}

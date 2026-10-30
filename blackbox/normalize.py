@@ -88,9 +88,74 @@ def _fmt(x: float) -> str:
     return str(int(x)) if x == int(x) else repr(x)
 
 
+_HI_UNITS = ("ek do teen chaar char paanch panch chhe chheh che chhah saat aath nau das gyarah barah terah chaudah "
+             "pandrah solah satrah atharah unnis bees ikkis baais teis chaubis pachchis pachis chhabbis sattais "
+             "atthais unattis tees iktis battis taintis chauntis paintis chhattis saintis adtis unchalis chalis "
+             "iktalis bayalis taintalis chauvalis paintalis chhiyalis saintalis adtalis unchas pachaas pachas "
+             "ikyavan baavan tirepan chauvan pachpan chhappan sattavan atthavan unsath saath iksath baasath "
+             "tirsath chausath painsath chhiyasath sadsath adsath unhattar sattar ikhattar bahattar tihattar "
+             "chauhattar pachattar chhihattar satattar athattar unnasi assi ikyasi bayasi tirasi chaurasi pachasi "
+             "chhiyasi sattasi atthasi navasi nabbe ikyanve baanve tiranve chauranve pachanve chhiyanve sattanve "
+             "atthanve ninyanve").split()
+_HI_VAL = {w: v for w, v in zip(_HI_UNITS, [
+    1, 2, 3, 4, 4, 5, 5, 6, 6, 6, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 25,
+    26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50, 51,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78,
+    79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99])}
+_HI_VAL.update({"dedh": 1.5, "dhai": 2.5, "dhaai": 2.5, "aadha": 0.5, "adha": 0.5})
+_HI_MULT = {"sau": 100, "hazaar": 1000, "hazar": 1000}
+_HI_AMBIGUOUS = {"ek", "do", "teen", "char", "che", "saat", "nau", "das", "bees", "tees", "saath"}   # also real words
+_HI_NEXT_OK = {"milligram", "milligrams", "mg", "mcg", "microgram", "micrograms", "gram", "grams", "kilo", "kilos",
+               "kg", "kilogram", "ml", "millilitre", "milliliter", "joule", "joules", "j", "saal", "percent", "bpm",
+               "by", "over", "minute", "minutes", "mins", "min", "unit", "units", "litre", "liter", "lpm"}
+
+
+def _hindi_numbers(text: str) -> str:
+    """Hinglish: 'ek sau bees by assi' -> '120 by 80'. A run converts only if it is unambiguous
+    (contains a non-ambiguous word, or 'sau'/'hazaar'), or sits right before a unit / 'by' or right after 'by'."""
+    toks = re.findall(r"\d+(?:\.\d+)?|[a-z]+\d*|[^\sa-z\d]", text)
+    words = set(_HI_VAL) | set(_HI_MULT) | {"saade", "sade"}
+    out, i = [], 0
+    while i < len(toks):
+        if toks[i] not in words:
+            out.append(toks[i])
+            i += 1
+            continue
+        j = i
+        while j < len(toks) and toks[j] in words:
+            j += 1
+        run = toks[i:j]
+        nxt = toks[j] if j < len(toks) else ""
+        prv = out[-1] if out else ""
+        trusted = (len(run) > 1 or run[0] in _HI_MULT or run[0] not in _HI_AMBIGUOUS
+                   or nxt in _HI_NEXT_OK or prv in ("by", "over"))
+        if run == ["saade"] or run == ["sade"] or not trusted:
+            out.extend(run)
+            i = j
+            continue
+        total = cur = 0.0
+        half = False
+        for t in run:
+            if t in ("saade", "sade"):
+                half = True
+            elif t in _HI_MULT:
+                if _HI_MULT[t] == 1000:
+                    total += (cur or 1) * 1000
+                    cur = 0
+                else:
+                    cur = (cur or 1) * 100
+            else:
+                cur += _HI_VAL[t] + (0.5 if half else 0)
+                half = False
+        out.append(_fmt(total + cur))
+        i = j
+    return " ".join(out)
+
+
 def words_to_numbers(text: str) -> str:
-    """Lowercase + replace runs of English number words with digits."""
+    """Lowercase + replace runs of English (and Hinglish) number words with digits."""
     text = text.lower().replace("i.v.", "iv").replace("i.m.", "im").replace("i.o.", "io")
+    text = _hindi_numbers(text)
     tokens = re.findall(r"[a-z]+\d+|[a-z]+|\d+(?:\.\d+)?|[^\sa-z\d]", text)
     out, i = [], 0
     while i < len(tokens):
@@ -132,24 +197,26 @@ _REL_EN = re.compile(r"(?:about |around |like |roughly |approx(?:imately)? )?"
                      r"(\d+(?:\.\d+)?)\s*(?:minutes?|mins?)\s*(?:ago|back|before)")
 _REL_HI = re.compile(r"(\d+|" + "|".join(HINDI_NUM) + r")\s*(?:minute|minutes|min|mins)\s*(?:pehle|pahle|pehele)")
 _HALF_HOUR = re.compile(r"half an hour (?:ago|back)|aadha ghanta pehle")
-_CLOCK = re.compile(r"\bat (\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", re.I)
+_CLOCK = re.compile(r"\bat (\d{1,2}):(\d{2})\b")
+_CLOCK_AMPM = re.compile(r"\bat (\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b", re.I)
 
 
 def resolve_time(text: str, time_logged: datetime) -> tuple[datetime, str, Optional[tuple[int, int]]]:
     """Return (time_said, time_source, span) where span is the matched char range or None.
     text should already be passed through words_to_numbers()."""
-    m = _CLOCK.search(text)
-    if m and not (m.group(2) or m.group(3)):
-        m = None  # a bare hour is ambiguous; do not invent AM or PM
+    m = _CLOCK_AMPM.search(text)
     if m:
         hh, mm = int(m.group(1)), int(m.group(2) or 0)
-        meridiem = (m.group(3) or "").lower()
-        if meridiem:
-            if not 1 <= hh <= 12:
-                return time_logged, "logged", None
-            hh = hh % 12 + (12 if meridiem == "pm" else 0)
-        elif hh > 23:
+        if not 1 <= hh <= 12 or not 0 <= mm <= 59:
             return time_logged, "logged", None
+        hh = hh % 12 + (12 if m.group(3).lower().startswith("p") else 0)
+        t = time_logged.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if t > time_logged:
+            t -= timedelta(days=1)
+        return t, "explicit", m.span()
+    m = _CLOCK.search(text)
+    if m:
+        hh, mm = int(m.group(1)), int(m.group(2))
         t = time_logged.replace(hour=hh, minute=mm, second=0, microsecond=0)
         if t > time_logged:  # said "at 23:50" just after midnight
             t -= timedelta(days=1)

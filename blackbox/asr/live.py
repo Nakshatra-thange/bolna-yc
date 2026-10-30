@@ -48,6 +48,24 @@ CONFIRM_BELOW = 0.60   # ASR confidence under this -> ask the medic to confirm
 _SPEECH = {"proc": None, "until": 0.0}
 
 
+class MicCaptureGate:
+    """Queue microphone blocks unless playback is active."""
+    def __init__(self, output_queue):
+        self.output_queue = output_queue
+        self.paused = False
+
+    def callback(self, data, *_args):
+        if not self.paused:
+            self.output_queue.put(data[:, 0].copy() if getattr(data, "ndim", 0) > 1 else data.copy())
+
+    def during_playback(self, play, prompt):
+        self.paused = True
+        try:
+            return play(prompt)
+        finally:
+            self.paused = False
+
+
 def speak(text: str):
     """Offline text-to-speech for read-backs: macOS 'say', else eSpeak. Never blocks the pipeline on failure."""
     import shutil
@@ -140,6 +158,21 @@ class Pipeline:
             if resp:
                 return self._handle_alert_response(rec, resp, time_logged)
 
+        # A spoken medication name resolves the newest unknown-drug clarification.
+        if self.extract:
+            resolved = self.queue.resolve_latest_drug(text)
+            if resolved:
+                pending, drug = resolved
+                pending.update(event_type="medication", drug=drug, time_said=time_logged.isoformat(),
+                               time_source="logged", needs_confirmation=True)
+                pending.setdefault("confirm_reasons", []).append("drug name resolved; confirm details")
+                rec["type"] = "resolution"
+                rec["events"] = [pending]
+                rec["extract_meta"] = {"source": "resolution", "held": []}
+                # Continue through the ordinary audit and confirmation recording path.
+            else:
+                rec["type"] = "dictation"
+
         cmd = parse_command(text) if self.extract else None
         if cmd and self.queue.pending:
             res = self.queue.handle(cmd, time_logged, said=text)
@@ -154,8 +187,9 @@ class Pipeline:
                 self.guardian.unregister(res["event_id"])     # a cancelled dose doesn't count towards limits
             return rec
 
-        rec["type"] = "dictation"
-        if self.extract:
+        if rec.get("type") != "resolution":
+            rec["type"] = "dictation"
+        if self.extract and rec.get("type") != "resolution":
             events, meta = self.extractor.extract(text, time_logged, asr=rec)
             for k, e in enumerate(events, 1):
                 e["event_id"] = f"{rec['id']}-e{k}"
@@ -172,6 +206,8 @@ class Pipeline:
                 self.incident)
             print(f"     PATIENT: {ctx}")
         for e in rec.get("events", []):
+            if e.get("event_type") == "clarification":
+                continue
             ent = self.chain.append("event", {"event_id": e["event_id"], "utterance_ref": u.entry_hash,
                                               "event": e}, self.incident)
             self.event_refs[e["event_id"]] = ent.entry_hash
@@ -287,9 +323,10 @@ def run_mic(pipe: Pipeline, device=None):
         sys.exit("PortAudio missing. macOS: brew install portaudio")
     q: queue.Queue = queue.Queue()
     seg = Segmenter()
+    gate = MicCaptureGate(q)
     print("listening... (Ctrl+C to stop)")
     with sd.InputStream(samplerate=SR, channels=1, dtype="float32", blocksize=1600, device=device,
-                        callback=lambda d, *_: q.put(d[:, 0].copy())):
+                        callback=lambda d, *_: None if speaking() else gate.callback(d)):
         try:
             while True:
                 block = q.get()
