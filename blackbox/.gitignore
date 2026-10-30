@@ -1,6 +1,7 @@
 # ---------- Python / tooling
 .venv/
 venv/
+.venv-native/
 .venv-arm/
 __pycache__/
 *.py[cod]

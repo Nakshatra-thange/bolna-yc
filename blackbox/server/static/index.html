@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Box — Verifier</title>
+<style>
+:root{
+  --bg:#0a0f1a; --panel:#111827; --panel2:#0f172a; --line:#1f2a3d; --text:#e5e7eb; --muted:#8b97ab;
+  --ok:#22c55e; --ok-bg:rgba(34,197,94,.12); --bad:#f43f5e; --bad-bg:rgba(244,63,94,.12);
+  --warn:#f59e0b; --warn-bg:rgba(245,158,11,.12); --info:#38bdf8; --accent:#e11d48;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#f5f6f8; --panel:#ffffff; --panel2:#f8fafc; --line:#e3e7ee; --text:#0f172a; --muted:#5b6474;
+  --ok-bg:rgba(34,197,94,.10); --bad-bg:rgba(244,63,94,.09); --warn-bg:rgba(245,158,11,.12);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--sans)}
+button,select,input{font:inherit;color:inherit}
+.wrap{max-width:1360px;margin:0 auto;padding:0 20px 40px}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.hbar{max-width:1360px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:30px;height:30px;border-radius:7px;background:#000;border:2px solid var(--accent);display:grid;place-items:center;box-shadow:0 0 0 3px rgba(225,29,72,.15)}
+.logo i{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:rec 1.6s infinite}
+@keyframes rec{50%{opacity:.25}}
+.brand b{font-size:16px;letter-spacing:.14em}
+.brand span{display:block;color:var(--muted);font-size:12px;letter-spacing:0}
+.chip{font:12px var(--mono);padding:4px 8px;border:1px solid var(--line);border-radius:6px;color:var(--muted);background:var(--panel)}
+select,.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+
+.verdict{display:flex;align-items:center;gap:18px;margin:20px 0 16px;padding:18px 20px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}
+.verdict.ok{border-color:rgba(34,197,94,.45);background:linear-gradient(90deg,var(--ok-bg),transparent 70%),var(--panel)}
+.verdict.bad{border-color:rgba(244,63,94,.6);background:linear-gradient(90deg,var(--bad-bg),transparent 70%),var(--panel);animation:pulse 1.2s 2}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(244,63,94,.18)}}
+.seal{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;font-size:26px;font-weight:800;flex:none}
+.ok .seal{background:var(--ok-bg);color:var(--ok);border:2px solid var(--ok)}
+.bad .seal{background:var(--bad-bg);color:var(--bad);border:2px solid var(--bad)}
+.verdict h2{margin:0;font-size:22px;letter-spacing:.02em}
+.verdict p{margin:2px 0 0;color:var(--muted)}
+.verdict .hash{font:12px var(--mono);color:var(--muted);word-break:break-all}
+
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.tile .v{font-size:26px;font-weight:700;margin-top:2px}
+.tile .s{color:var(--muted);font-size:12px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.panel h3{margin:0;padding:12px 16px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.panel h3 .r{margin-left:auto;text-transform:none;letter-spacing:0}
+.pt{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.pt .tag{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line)}
+.pt .tag.allergy{border-color:rgba(244,63,94,.5);color:var(--bad);background:var(--bad-bg)}
+
+.ev{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:relative}
+.ev:last-child{border-bottom:0}
+.ev .t{font:600 13px var(--mono);color:var(--muted);padding-top:2px}
+.ev .title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px}
+.ev .title b{font-weight:650}
+.ev .ico{width:22px;height:22px;border-radius:6px;display:inline-grid;place-items:center;font-size:12px;background:var(--panel2);border:1px solid var(--line)}
+.pill{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid}
+.pill.recorded{color:var(--ok);border-color:rgba(34,197,94,.4)}
+.pill.confirmed{color:#fff;background:var(--ok);border-color:var(--ok)}
+.pill.cancelled{color:var(--muted);border-color:var(--line);text-decoration:line-through}
+.pill.pending,.pill.unconfirmed{color:var(--warn);border-color:rgba(245,158,11,.5)}
+.ev.cancelled .title b{text-decoration:line-through;color:var(--muted)}
+.ev.tampered{background:var(--bad-bg);box-shadow:inset 3px 0 0 var(--bad)}
+.ev .said{color:var(--muted);font-size:13px;margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.play{font-size:12px;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:transparent;cursor:pointer}
+.play:hover{border-color:var(--muted)}
+.am{font-size:12px}
+.am.ok{color:var(--ok)}.am.bad{color:var(--bad)}
+.alert{margin-top:8px;border-radius:8px;padding:8px 10px;font-size:13px;border:1px solid}
+.alert.critical{background:var(--bad-bg);border-color:rgba(244,63,94,.45)}
+.alert.warning{background:var(--warn-bg);border-color:rgba(245,158,11,.45)}
+.alert.info{border-color:var(--line)}
+.alert .rule{font:700 11px var(--mono);letter-spacing:.04em}
+.alert .resp{margin-top:4px;color:var(--muted)}
+.alert .resp b{color:var(--text)}
+.reasons{margin-top:4px;font-size:12px;color:var(--warn)}
+.tamperflag{margin-top:6px;font-size:12px;color:var(--bad);font-weight:600}
+
+.chain{max-height:640px;overflow:auto;position:relative}
+.row{display:grid;grid-template-columns:22px 42px 100px 1fr;gap:8px;align-items:start;padding:7px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.row .d{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--ok)}
+.row.bad{background:var(--bad-bg)}
+.row.bad .d{background:var(--bad);box-shadow:0 0 0 4px rgba(244,63,94,.2)}
+.row .n{font:12px var(--mono);color:var(--muted);padding-top:1px}
+.kind{font:11px var(--mono);padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kind.alert,.kind.alert_response{color:var(--warn);border-color:rgba(245,158,11,.4)}
+.kind.event{color:var(--info);border-color:rgba(56,189,248,.4)}
+.kind.confirmation{color:var(--ok);border-color:rgba(34,197,94,.4)}
+.kind.anchor,.kind.genesis{color:var(--accent);border-color:rgba(225,29,72,.4)}
+.row .sum{overflow:hidden;text-overflow:ellipsis}
+.row .prob{grid-column:2/-1;color:var(--bad);font-size:12px;font-weight:600}
+.row .warnl{grid-column:2/-1;color:var(--warn);font-size:12px}
+.row .h{grid-column:3/-1;font:11px var(--mono);color:var(--muted);display:none;word-break:break-all}
+.row:hover .h{display:block}
+
+.attack{margin-top:16px}
+.attack .body{padding:14px 16px;display:grid;grid-template-columns:1.2fr 1fr .6fr auto auto;gap:10px;align-items:end}
+.attack label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.attack select,.attack input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.attack .note{grid-column:1/-1;color:var(--muted);font-size:13px;margin:0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;transition:.25s;pointer-events:none}
+.toast.on{opacity:1}
+.empty{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty code{display:block;margin:6px auto;font:13px var(--mono);color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;max-width:560px;text-align:left}
+footer{color:var(--muted);font-size:12px;margin-top:22px;text-align:center}
+@media (max-width:980px){.grid{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}.attack .body{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><div class="hbar">
+  <div class="brand"><div class="logo"><i></i></div><div><b>BLACK BOX</b><span>flight recorder for emergency care — verifier</span></div></div>
+  <span class="chip" id="dev">no device</span>
+  <select id="inc" title="Incident"></select>
+  <button class="btn" id="fhir">Export FHIR</button>
+  <button class="btn" id="handover">Handover sheet</button>
+  <button class="btn ghost" id="theme" title="Toggle theme">◐</button>
+</div></header>
+
+<div class="wrap" id="app">
+  <div class="empty" id="empty" hidden>
+    <h2>No synced device yet</h2>
+    <p>Create a record on the “ambulance” and sync it here:</p>
+    <code>python -m audit.demo</code>
+    <code>python -m sync.client push</code>
+    <p>This page refreshes by itself.</p>
+  </div>
+
+  <div id="main" hidden>
+    <section class="verdict" id="verdict">
+      <div class="seal" id="seal">✓</div>
+      <div style="min-width:0">
+        <h2 id="vtitle">Record intact</h2>
+        <p id="vsub"></p>
+        <div class="hash" id="vhash"></div>
+      </div>
+    </section>
+
+    <section class="tiles">
+      <div class="tile"><div class="k">Signed entries</div><div class="v" id="t-entries">–</div><div class="s" id="t-entries-s"></div></div>
+      <div class="tile"><div class="k">Medications</div><div class="v" id="t-meds">–</div><div class="s" id="t-meds-s"></div></div>
+      <div class="tile"><div class="k">Guardian alerts</div><div class="v" id="t-alerts">–</div><div class="s" id="t-alerts-s"></div></div>
+      <div class="tile"><div class="k">Server anchor</div><div class="v" id="t-anchor">–</div><div class="s" id="t-anchor-s"></div></div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h3>Clinical record <span class="r" id="recnote"></span></h3>
+        <div class="pt" id="patient"></div>
+        <div id="record"></div>
+      </div>
+      <div class="panel">
+        <h3>Audit chain <span class="r"><button class="btn ghost" id="reverify" style="padding:3px 9px">Verify again</button></span></h3>
+        <div class="chain" id="chain"></div>
+      </div>
+    </section>
+
+    <section class="panel attack">
+      <h3>Attack simulation — edit the hospital's copy like an insider would</h3>
+      <div class="body">
+        <p class="note">Black Box doesn't stop anyone from editing the database. It makes every edit <b>provable</b>: each entry is hashed, signed with a key that never leaves the ambulance, and chained to the one before.</p>
+        <div><label>Attack</label>
+          <select id="atk">
+            <option value="edit_dose">Change a drug dose</option>
+            <option value="edit_text">Rewrite what the medic said</option>
+            <option value="backdate">Backdate an entry</option>
+            <option value="delete">Delete an entry</option>
+          </select></div>
+        <div><label>Target entry</label><select id="target"></select></div>
+        <div><label id="vallabel">New value</label><input id="val" value="500"></div>
+        <button class="btn primary" id="run">Run attack</button>
+        <button class="btn" id="restore">Restore</button>
+      </div>
+    </section>
+    <footer>Runs fully offline · Ed25519 signatures · SHA-256 hash chain · AES-GCM voice clips · server-countersigned anchors · decision support only, not for clinical use</footer>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtT = iso => iso ? iso.slice(11,19) : "";
+const ICON = {medication:"💊", procedure:"⚡", vital:"♥", note:"✎"};
+const KIND = {alert_response:"response", confirmation:"confirm", utterance:"voice"};
+let device = null, incident = null, last = null, busy = false;
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),2600); }
+function theme(){ try{ const v = localStorage.getItem("bb-theme"); if(v) document.documentElement.dataset.theme=v; }catch(e){} }
+theme();
+$("#theme").onclick = () => { const r=document.documentElement; r.dataset.theme = r.dataset.theme==="light" ? "dark" : "light"; try{localStorage.setItem("bb-theme", r.dataset.theme)}catch(e){} };
+
+async function api(path, opts){ const r = await fetch(path, opts); if(!r.ok){ let d; try{d=(await r.json()).detail}catch(e){} throw new Error(d || r.statusText); } return r; }
+
+async function load(){
+  if (busy) return;
+  try{
+    const info = await (await api("/api/server")).json();
+    if (!info.devices.length){ $("#empty").hidden=false; $("#main").hidden=true; return; }
+    device = device || info.devices[info.devices.length-1].device_id;
+    const v = await (await api(`/api/devices/${device}/view` + (incident ? `?incident=${encodeURIComponent(incident)}` : ""))).json();
+    $("#empty").hidden = true; $("#main").hidden = false;
+    render(v);
+  }catch(e){ toast("server: " + e.message); }
+}
+
+function render(v){
+  last = v; incident = v.incident;
+  $("#dev").textContent = v.device.device_id;
+  $("#inc").innerHTML = v.incidents.map(i => `<option ${i===v.incident?"selected":""}>${esc(i)}</option>`).join("");
+  const I = v.integrity, A = v.anchor;
+  const ok = I.ok;
+  $("#verdict").className = "verdict " + (ok ? "ok" : "bad");
+  $("#seal").textContent = ok ? "✓" : "✗";
+  $("#vtitle").textContent = ok ? "Record intact" : "Tampering detected";
+  $("#vsub").innerHTML = ok
+    ? `All ${I.total} entries carry valid signatures from <b>${esc(v.device.device_id)}</b> and link into one unbroken chain.`
+    : `${I.bad.length ? (I.bad.length === 1 ? "Entry " : "Entries ") + I.bad.map(s=>"#"+s).join(", ") + (I.bad.length === 1 ? " fails" : " fail") + " verification — it was changed after the ambulance signed it. " : ""}${I.chain_problems.map(esc).join(" ")}`;
+  $("#vhash").textContent = `head #${I.head_seq} · ${I.head_hash || ""}`;
+
+  const S = v.stats;
+  $("#t-entries").textContent = I.total;
+  $("#t-entries-s").textContent = ok ? "all verified" : `${I.bad.length} failing`;
+  $("#t-meds").textContent = S.medications;
+  $("#t-meds-s").textContent = `${S.confirmed} confirmed by voice · ${S.cancelled} cancelled`;
+  $("#t-alerts").textContent = S.alerts;
+  $("#t-alerts-s").textContent = `${S.overrides} overridden with a reason`;
+  $("#t-anchor").textContent = A ? "#" + A.seq : "none";
+  $("#t-anchor-s").textContent = A ? "server-signed " + A.server_time.replace("T"," ").slice(0,19) + " UTC" : "not synced yet";
+
+  const P = v.patient || {};
+  const tags = [];
+  if (P.age_years != null) tags.push(`<span class="tag">age ${esc(P.age_years)}</span>`);
+  if (P.weight_kg != null) tags.push(`<span class="tag">${esc(P.weight_kg)} kg</span>`);
+  (P.allergies||[]).forEach(a => tags.push(`<span class="tag allergy">allergy: ${esc(a)}</span>`));
+  (P.flags||[]).forEach(f => tags.push(`<span class="tag allergy">${esc(f.replace(/_/g," "))}</span>`));
+  $("#patient").innerHTML = tags.length ? tags.join("") : `<span class="tag">no patient context recorded</span>`;
+  $("#patient").hidden = false;
+
+  $("#recnote").textContent = `${v.record.length} events`;
+  $("#record").innerHTML = v.record.map(x => {
+    const e = x.event, t = e.event_type;
+    let title = "";
+    if (t === "medication") title = `<b>${esc((e.drug||"?").replace(/_/g," "))}</b> ${esc(e.dose ?? "?")} ${esc(e.unit||"")} <span class="chip">${esc(e.route||"?")}</span>`;
+    else if (t === "procedure") title = `<b>${esc((e.procedure||"").replace(/_/g," "))}</b>${e.params && e.params.joules ? " · "+e.params.joules+" J" : ""}`;
+    else if (t === "vital") title = Object.entries(e.vital||{}).map(([k,val]) => `<b>${esc(k.replace("_mg_dl",""))}</b> ${esc(val)}`).join(" · ");
+    else title = "note";
+    const alerts = (x.alerts||[]).map(a => {
+      const r = a.response;
+      const resp = r ? `→ <b>${esc(r.action.replace(/_/g," "))}</b>${r.reason ? " — “"+esc(r.reason)+"”" : ""}` : "→ awaiting answer";
+      return `<div class="alert ${esc(a.severity)}"><span class="rule">GUARDIAN · ${esc(a.rule_id)}</span><div>${esc(a.message)}</div><div class="resp">${resp}</div></div>`;
+    }).join("");
+    const corr = (x.history||[]).filter(h=>h.what==="corrected").map(h => `<div class="reasons">corrected ${esc(JSON.stringify(h.before))} → ${esc(JSON.stringify(h.after))} (${esc(h.reason)}, ${esc(h.by)})</div>`).join("");
+    const voice = x.utterance_seq != null ? `<button class="play" data-seq="${x.utterance_seq}">▶ voice</button><span class="am" id="am-${x.utterance_seq}"></span>` : "";
+    return `<div class="ev ${esc(x.status)} ${x.integrity_ok ? "" : "tampered"}">
+      <div class="t">${fmtT(e.time_said)}</div>
+      <div>
+        <div class="title"><span class="ico">${ICON[t]||"•"}</span>${title}<span class="pill ${esc(x.status)}">${esc(x.status)}</span></div>
+        ${x.utterance_text ? `<div class="said">“${esc(x.utterance_text)}” ${voice}</div>` : ""}
+        ${x.status==="pending" && x.reasons && x.reasons.length ? `<div class="reasons">needs confirmation: ${esc(x.reasons.join("; "))}</div>` : ""}
+        ${corr}${alerts}
+        ${x.integrity_ok ? "" : `<div class="tamperflag">✗ this entry (#${x.entry_seq ?? "?"}) failed verification — the value shown is NOT what the ambulance signed</div>`}
+      </div></div>`;
+  }).join("") || `<div class="empty">No events in this incident.</div>`;
+
+  $("#chain").innerHTML = v.chain.map(c => `<div class="row ${c.ok ? "" : "bad"}">
+      <span class="d" title="${c.ok ? "verified" : "FAILED"}"></span>
+      <span class="n">#${c.seq}</span>
+      <span class="kind ${esc(c.kind)}">${esc(KIND[c.kind] || c.kind)}</span>
+      <span class="sum">${esc(c.summary)}</span>
+      ${c.problems.map(p => `<span class="prob">✗ ${esc(p)}</span>`).join("")}
+      ${c.warnings.map(w => `<span class="warnl">! ${esc(w)}</span>`).join("")}
+      <span class="h">${esc(c.hash)} · ${esc(c.ts)}</span>
+    </div>`).join("");
+  const firstBad = document.querySelector(".row.bad");
+  if (firstBad && !ok && render._wasOk !== false){            // keep the red verdict in view: scroll only the chain panel
+    const box = $("#chain");
+    box.scrollTo({top: Math.max(0, firstBad.offsetTop - box.clientHeight/3), behavior:"smooth"});
+    window.scrollTo({top: 0, behavior:"smooth"});
+  }
+  render._wasOk = ok;
+
+  fillTargets();
+  document.querySelectorAll(".play").forEach(b => b.onclick = () => play(+b.dataset.seq));
+}
+
+function fillTargets(){
+  if (!last) return;
+  const kind = $("#atk").value, keep = $("#target").value;
+  const ok = c => kind === "edit_dose" ? (c.kind === "event" && /\d/.test(c.summary) && !/^procedure|^vitals/.test(c.summary))
+                : kind === "edit_text" ? c.kind === "utterance"
+                : c.kind !== "genesis";
+  $("#target").innerHTML = last.chain.filter(ok).map(c => `<option value="${c.seq}">#${c.seq} ${esc(c.kind)} — ${esc(c.summary.slice(0,48))}</option>`).join("");
+  if ([...$("#target").options].some(o => o.value === keep)) $("#target").value = keep;
+  const lab = {edit_dose:["New dose","500"], edit_text:["New transcript","morphine forty milligrams IV"], backdate:["Minutes earlier","15"], delete:["—",""]}[kind];
+  $("#vallabel").textContent = lab[0];
+  if ($("#val").dataset.kind !== kind){ $("#val").value = lab[1]; $("#val").dataset.kind = kind; }
+  $("#val").disabled = kind === "delete";
+}
+$("#atk").onchange = fillTargets;
+
+async function play(seq){
+  const el = $("#am-"+seq);
+  try{
+    const r = await api(`/api/devices/${device}/audio/${seq}`);
+    const match = r.headers.get("X-Audio-Matches-Chain") === "true";
+    const url = URL.createObjectURL(await r.blob());
+    new Audio(url).play();
+    el.className = "am " + (match ? "ok" : "bad");
+    el.textContent = match ? "✓ audio matches signed hash" : "✗ audio does NOT match the chain";
+  }catch(e){ el.className="am bad"; el.textContent = "✗ " + e.message; }
+}
+
+$("#run").onclick = async () => {
+  busy = true;
+  try{
+    const r = await (await api("/api/demo/tamper", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({device_id: device, kind: $("#atk").value, seq: +$("#target").value, value: $("#val").value})})).json();
+    toast("Attack: " + r.done);
+  }catch(e){ toast(e.message); }
+  busy = false; load();
+};
+$("#restore").onclick = async () => {
+  busy = true;
+  try{ await api("/api/demo/restore", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({device_id: device})}); toast("Restored the copy the ambulance signed"); }
+  catch(e){ toast(e.message); }
+  busy = false; load();
+};
+$("#reverify").onclick = () => { load(); toast("Re-verified every signature and link"); };
+$("#inc").onchange = e => { incident = e.target.value; load(); };
+$("#fhir").onclick = () => { if (device && incident) location.href = `/api/devices/${device}/incidents/${encodeURIComponent(incident)}/fhir`; };
+$("#handover").onclick = () => { if (device && incident) window.open(`/api/devices/${device}/incidents/${encodeURIComponent(incident)}/handover`, "_blank"); };
+
+load();
+setInterval(() => { if (!document.hidden) load(); }, 4000);
+</script>
+</body>
+</html>

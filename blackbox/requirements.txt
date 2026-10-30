@@ -9,3 +9,6 @@ espeakng-loader
 sherpa-onnx
 llama-cpp-python
 cryptography
+fastapi
+uvicorn
+httpx

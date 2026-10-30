@@ -45,21 +45,37 @@ from guardian.guardian import Guardian  # noqa: E402
 CONFIRM_BELOW = 0.60   # ASR confidence under this -> ask the medic to confirm
 
 
+_SPEECH = {"proc": None, "until": 0.0}
+
+
 def speak(text: str):
     """Offline text-to-speech for read-backs: macOS 'say', else eSpeak. Never blocks the pipeline on failure."""
     import shutil
     import subprocess
     try:
         if shutil.which("say"):
-            subprocess.Popen(["say", "-r", "210", text])
+            _SPEECH["proc"] = subprocess.Popen(["say", "-r", "210", text])
             return
         sys.path.insert(0, str(ROOT / "eval"))
         import sounddevice as sd
         from synth_tts import ESpeak
         speak._tts = getattr(speak, "_tts", None) or ESpeak()
-        sd.play(speak._tts.say(text), SR)
+        audio = speak._tts.say(text)
+        _SPEECH["until"] = time.time() + len(audio) / SR
+        sd.play(audio, SR)
     except Exception as exc:  # noqa: BLE001
         print(f"     (speech output unavailable: {exc})")
+
+
+def speaking(tail_s: float = 0.4) -> bool:
+    """True while our own read-back is playing (+ a short tail), so the mic doesn't transcribe it (echo)."""
+    p = _SPEECH["proc"]
+    if p is not None:
+        if p.poll() is None:
+            _SPEECH["until"] = time.time() + tail_s
+            return True
+        _SPEECH["proc"] = None
+    return time.time() < _SPEECH["until"]
 
 
 class Pipeline:
@@ -276,7 +292,11 @@ def run_mic(pipe: Pipeline, device=None):
                         callback=lambda d, *_: q.put(d[:, 0].copy())):
         try:
             while True:
-                for clip in seg.feed(q.get()):
+                block = q.get()
+                if speaking():            # half-duplex: drop audio while the device itself is talking
+                    seg.reset()
+                    continue
+                for clip in seg.feed(block):
                     pipe.handle(clip, datetime.now(timezone.utc))
         except KeyboardInterrupt:
             for clip in seg.flush():
