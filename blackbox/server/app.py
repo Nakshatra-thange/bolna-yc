@@ -1,20 +1,4 @@
-"""
-Black Box server - the hospital side.
 
-  python -m server.app                      # http://127.0.0.1:8000   (dashboard at /)
-  python -m server.app --port 8080 --data server_data
-
-API
-  POST /api/devices/register   {device_id, public_key, audio_key}     pin the device key (first time only)
-  GET  /api/devices/{id}/head                                          last seq the server has
-  POST /api/sync               {device_id, entries:[...], clips:{path: b64}}  -> anchor receipt (server-signed)
-  GET  /api/devices/{id}/view?incident=...                              everything the dashboard shows
-  GET  /api/devices/{id}/audio/{seq}                                    decrypted original voice clip (wav)
-  GET  /api/devices/{id}/incidents/{inc}/fhir                           FHIR R4 Bundle (+ Provenance signatures)
-  GET  /api/devices/{id}/incidents/{inc}/handover                       printable handover sheet (HTML -> PDF)
-  POST /api/demo/tamper  {device_id, kind, seq, value}                  insider edits the SERVER copy (demo)
-  POST /api/demo/restore {device_id}                                    put the synced originals back
-"""
 from __future__ import annotations
 
 import argparse

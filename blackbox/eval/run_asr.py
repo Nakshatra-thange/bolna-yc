@@ -1,22 +1,4 @@
-"""
-Black Box - run offline ASR over every audio condition, write hypotheses for score.py.
-Each line stores raw_text (straight from ASR) AND text (after lexicon correction), so one run
-gives you both numbers.
 
-  # A/B the biasing modes (faster-whisper):
-  python eval/run_asr.py --model small --bias none
-  python eval/run_asr.py --model small --bias prompt
-  python eval/run_asr.py --model small --bias hotwords
-  python eval/score.py --asr eval/preds/asr_fw-small_none.jsonl --asr-field raw_text   # no biasing at all
-  python eval/score.py --asr eval/preds/asr_fw-small_prompt.jsonl                      # prompt + lexicon fix
-
-  # sherpa-onnx (Android-portable engine family):
-  python eval/run_asr.py --backend sherpa-whisper --model-dir models/sherpa-onnx-whisper-small.en
-
-First faster-whisper run downloads the model once (~460 MB for 'small'); after that it's offline.
-Output: eval/preds/asr_<engine>_<bias>.jsonl, written via a .partial file and only renamed into place
-once every planned (condition, id) is present - an interrupted run can't pass for a finished one.
-"""
 from __future__ import annotations
 
 import argparse

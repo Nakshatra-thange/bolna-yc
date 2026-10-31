@@ -1,15 +1,4 @@
-"""
-Black Box server - storage + sync acceptance + anchor receipts.
 
-Sync rules (each one is a sentence for the judges):
-  * a device's public key is pinned the first time it registers; a different key later is refused
-  * a batch must continue the stored chain exactly (seq = head+1, prev_hash = stored head hash)
-  * re-sending entries the server already has is fine (idempotent); the SAME seq with a DIFFERENT
-    hash is a FORK - refused and kept as evidence
-  * every new entry is verified (hash, Ed25519 signature with the pinned key, links) before storing
-  * after a good sync the server signs an ANCHOR RECEIPT {device, seq, hash, server_time} with its own key.
-    Once anchored, deleting or rewriting those entries on the device is detectable forever.
-"""
 from __future__ import annotations
 
 import base64

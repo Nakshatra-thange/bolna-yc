@@ -1,9 +1,3 @@
-"""
-Black Box Guardian - scripted scenes with EXPECTED alerts (the Guardian's eval set).
-
-Each step: (minutes_from_start, what the medic says). expected: {(step_index, rule_id), ...}.
-Normal scenes expect NO alerts - they measure false alarms.
-"""
 
 SCENES = [
     {"name": "arrest_epi_repeated_too_soon", "steps": [(0, "started CPR"), (1, "epi one milligram IV"),

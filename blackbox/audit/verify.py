@@ -1,18 +1,4 @@
-"""
-Black Box - chain verifier + "effective record" view.
 
-Checks, per entry:
-  hash      SHA-256(body) == stored entry_hash            -> catches edited content (dose, time, text)
-  sig       Ed25519(entry_hash) valid for PINNED key      -> catches re-hashed forgeries without the device key
-  link      body.prev_hash == previous entry's hash       -> catches deleted / inserted / reordered entries
-  seq       no gaps                                       -> says HOW MANY entries are missing
-  clock     wall clock never runs backwards, and agrees with the monotonic clock inside one boot
-  audio     decrypt clip, SHA-256 == hash in the chain    -> catches swapped / edited voice clips
-  head      optional expected (seq, hash) from the server -> catches deleted entries at the END (truncation)
-
-The pinned public key must come from OUTSIDE the database (server registry / file). Trusting the
-key inside the genesis entry would let an attacker replace it and re-sign everything.
-"""
 from __future__ import annotations
 
 import base64

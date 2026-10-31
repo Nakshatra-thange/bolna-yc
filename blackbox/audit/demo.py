@@ -1,11 +1,4 @@
-"""
-Black Box - build a demo incident (cardiac arrest) in the real chain, no mic or ASR model needed.
-Each line is spoken with offline eSpeak (if installed) so real encrypted voice clips exist.
 
-  python -m audit.demo                      # -> runs/blackbox.db + runs/DEMO-ARREST/...
-  python -m audit.cli show --incident DEMO-ARREST
-  python -m audit.cli verify
-"""
 from __future__ import annotations
 
 import argparse

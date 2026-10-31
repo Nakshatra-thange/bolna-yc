@@ -1,12 +1,4 @@
-"""
-Black Box - spoken confirm / cancel for low-confidence events.
 
-The medic hears "Confirm: fentanyl 50 micrograms IV?" and just says "confirm" / "haan" or "cancel" / "galat".
-Only a SHORT utterance made entirely of command words counts as a command, so
-"no aspirin, he's allergic" is dictation, not a cancel.
-Nothing is ever deleted: confirmed / cancelled / unconfirmed are new records that point at the event
-(in Phase 3 they become chain entries).
-"""
 from __future__ import annotations
 
 import re

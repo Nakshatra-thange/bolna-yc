@@ -1,18 +1,4 @@
-"""
-Black Box - local LLM extractor with grammar-constrained JSON output.
 
-Division of labour (this is the safety argument):
-  the LLM only READS:  copies drug-as-spoken, dose number, unit, route, time phrase, evidence span,
-                       and decides given / planned / not_given (negation, plans, self-corrections)
-  the CODE decides:    drug identity (protocol aliases), unit defaults, time arithmetic, and checks
-                       every drug name and dose number really occurs in the transcript.
-                       Anything inferred or unverifiable -> needs_confirmation.
-
-Backends (both fully offline):
-  llamacpp  pip install llama-cpp-python ; a GGUF file, e.g. qwen2.5-1.5b-instruct-q4_k_m.gguf
-  ollama    brew install ollama ; ollama pull qwen2.5:1.5b   (server on localhost)
-Both enforce the JSON schema below at decode time, so output is always parseable.
-"""
 from __future__ import annotations
 
 import json

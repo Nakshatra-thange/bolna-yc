@@ -1,14 +1,4 @@
-"""
-Black Box - run an extractor over gold text (or ASR output) and write predictions for score.py.
 
-  python eval/run_extractor.py --extractor rules
-  python eval/run_extractor.py --extractor llm    --backend llamacpp --model models/qwen2.5-1.5b-instruct-q4_k_m.gguf
-  python eval/run_extractor.py --extractor hybrid --backend llamacpp --model models/qwen2.5-1.5b-instruct-q4_k_m.gguf
-  python eval/run_extractor.py --extractor hybrid --backend ollama --model qwen2.5:1.5b
-  python eval/run_extractor.py --extractor hybrid ... --input eval/preds/asr_fw-small_prompt.jsonl --condition siren_5db
-
-then:  python eval/score.py --pred eval/preds/ext_<tag>.jsonl --label <tag>
-"""
 from __future__ import annotations
 
 import argparse

@@ -1,16 +1,4 @@
-"""
-Black Box - hybrid extractor: LLM + rules cross-check -> events with needs_confirmation.
 
-Policy (every rule here is a sentence you can say to a judge):
-  1. The LLM is primary: it understands negation, plans and self-corrections.
-  2. Rules run on every utterance anyway. If rules and LLM disagree on drug/dose/route -> confirm.
-  3. A drug the rules saw but the LLM didn't mention at all -> kept, flagged (never silently drop a dose).
-     A drug the LLM explicitly marked planned / not_given -> dropped (it read the negation).
-  4. Inferred values (dose not spoken), unknown drugs, off-protocol routes -> confirm.
-  5. Controlled drugs (fentanyl, morphine, midazolam) -> always confirm (witnessed record).
-  6. ASR doubt: a drug name that was auto-corrected, or low ASR confidence -> confirm.
-  7. LLM down / timeout / bad output -> rules only, every medication flagged.
-"""
 from __future__ import annotations
 
 import time

@@ -1,10 +1,4 @@
-"""
-Black Box - streaming voice-activity detection (Silero VAD v6, ONNX, CPU, offline).
 
-Uses the silero_vad_v6.onnx that ships inside the faster-whisper package, so there is
-nothing extra to download. Feed 16 kHz float32 audio in any block size; get back one
-Clip per spoken utterance (a medic's sentence), cut at pauses.
-"""
 from __future__ import annotations
 
 import os

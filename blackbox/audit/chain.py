@@ -1,23 +1,4 @@
-"""
-Black Box - the audit chain.
 
-Every entry:
-    body = canonical JSON {v, seq, prev_hash, device_id, boot_id, ts_wall, ts_mono_ns, incident_id, kind, payload}
-    entry_hash = SHA-256(body)          -> changing ANY byte of the body changes the hash
-    sig = Ed25519(entry_hash)           -> only the device key can produce it
-    prev_hash links to the entry before -> deleting / reordering breaks the link
-
-Kinds:
-    genesis       first entry: device public key
-    utterance     raw ASR text, corrected text, every auto-correction, SHA-256 of the voice clip
-    event         one extracted medication / procedure / vital, pointing at its utterance
-    confirmation  medic said confirm / cancel (or it timed out: unconfirmed), pointing at the event
-    correction    an amendment to an event (new values + reason). The original is never changed.
-    alert, alert_response  (Phase 4 Guardian)
-
-Storage: SQLite with triggers that refuse UPDATE / DELETE. The triggers are a speed bump, not the
-security: anyone can drop them. The hashes and signatures are the security - see audit/verify.py.
-"""
 from __future__ import annotations
 
 import hashlib

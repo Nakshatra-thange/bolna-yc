@@ -1,17 +1,4 @@
-"""
-Black Box - device sync client (run when the ambulance has signal; safe to run any time, repeatedly).
 
-  python -m sync.client push                               # -> http://127.0.0.1:8000
-  python -m sync.client push --server http://192.168.1.20:8000
-  python -m sync.client status
-
-What it does:
-  1. registers the device (public key pinned on first contact; server key pinned locally on first contact)
-  2. sends every chain entry the server doesn't have yet + the ENCRYPTED voice clips they reference
-  3. receives an anchor receipt signed by the server, checks the signature, saves it to runs/anchors.jsonl
-     and appends it to the chain as an 'anchor' entry (so the device's own record proves it synced)
-Offline queue = "entries after the server's head". Nothing to manage: if it fails, run it again later.
-"""
 from __future__ import annotations
 
 import argparse

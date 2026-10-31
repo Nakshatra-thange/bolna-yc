@@ -1,11 +1,4 @@
-"""
-Black Box Guardian - run every scripted scene through the SAME code path as the live pipeline
-(extraction -> context -> Guardian.assess) and score alerts against expectations.
 
-  python eval/score_guardian.py            # per-scene table + per-rule precision/recall
-  python eval/score_guardian.py -v         # also print every alert's spoken text
-  python eval/score_guardian.py --label guardian-v1     # append to eval/results/guardian_history.csv
-"""
 from __future__ import annotations
 
 import argparse

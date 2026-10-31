@@ -1,20 +1,4 @@
-"""
-Black Box - scorer.
 
-Extraction (per-field precision / recall / F1):
-  python eval/score.py --pred eval/preds/rules.jsonl --label rules-v1
-
-ASR (WER + safety-critical recall), optionally together with extraction:
-  python eval/score.py --asr eval/preds/asr_fw-small_none.jsonl --asr-field raw_text
-  python eval/score.py --asr eval/preds/asr_fw-small_prompt.jsonl --same-utts-as eval/preds/asr_fw-small_none.jsonl
-  python eval/score.py --pred eval/preds/rules_siren5.jsonl --asr eval/preds/asr_fw-small_none.jsonl --label rules+whisper-small
-
-With --pred from an ASR condition, the ASR section is restricted to that same condition and ids.
-Empty, mismatched or mixed-condition inputs are errors, never a 0.0 score.
-
-Every run with --label is appended to eval/results/history.csv, so you can show
-the score climbing feature by feature in the pitch.
-"""
 from __future__ import annotations
 
 import argparse

@@ -1,13 +1,4 @@
-"""
-Black Box - recording helper. Each teammate records their own lines.
 
-  pip install sounddevice soundfile numpy
-  python eval/record.py --speaker P1                       # quiet room -> audio/clean/
-  python eval/record.py --speaker P1 --condition real_siren  # play a siren video on another phone while reading
-
-Controls: Enter = start, Enter = stop, then [k]eep / [r]edo / [s]kip / [q]uit.
-Speak naturally and fast, like you're on scene - don't read like a newsreader.
-"""
 from __future__ import annotations
 
 import argparse

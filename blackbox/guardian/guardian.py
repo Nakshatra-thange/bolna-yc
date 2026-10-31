@@ -1,15 +1,4 @@
-"""
-Black Box Guardian - the "second pair of ears".
 
-Per utterance (called from asr/live.py Pipeline.handle):
-    updates = guardian.observe_context(text)         patient weight / age / allergies / flags
-    events, alerts = guardian.assess(events, text)   check every new medication, remember what was given
-Then the medic answers the latest alert:
-    "acknowledged" / "noted" / "theek hai"            -> acknowledged
-    "override, rhythm changed" / "override because…" -> overridden (a REASON is required)
-    "cancel dose" / "don't give" / "mat do"           -> cancelled_dose
-Unanswered alerts expire as "unanswered". Everything is written to the audit chain by the pipeline.
-"""
 from __future__ import annotations
 
 import re

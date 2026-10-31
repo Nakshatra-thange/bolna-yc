@@ -1,12 +1,4 @@
-"""
-Black Box - make noisy copies of the clean recordings.
 
-  python eval/add_noise.py                       # synthetic siren + road noise at 10/5/0 dB SNR
-  python eval/add_noise.py --siren-file noise/siren.wav --road-file noise/road.wav   # real CC0 noise clips
-
-Writes eval/data/audio/siren_10db/, siren_5db/, siren_0db/, road_10db/, ... (same file names as clean/).
-0 dB = noise as loud as the voice, which is roughly a siren right overhead.
-"""
 from __future__ import annotations
 
 import argparse

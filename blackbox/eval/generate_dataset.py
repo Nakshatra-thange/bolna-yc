@@ -1,15 +1,4 @@
-"""
-Black Box - synthetic dictation generator (Phase 1 eval set).
 
-Writes:
-  eval/data/gold.jsonl            one dictation per line + ground-truth events
-  eval/data/recording_script.csv  the subset your team reads aloud (split across P1/P2/P3)
-
-Every gold event is validated against schema.ClinicalEvent, so the eval set can
-never drift away from the real schema.
-
-Run:  python eval/generate_dataset.py            (deterministic, seed=7)
-"""
 from __future__ import annotations
 
 import csv

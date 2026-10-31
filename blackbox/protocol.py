@@ -1,10 +1,4 @@
-"""
-Black Box - protocol loader.
 
-Validates protocol.json on load (a typo in a dose limit is a safety bug),
-resolves spoken drug names to canonical ids, and computes the effective
-dose limits for a given patient, indication and route.
-"""
 from __future__ import annotations
 
 import json

@@ -1,11 +1,4 @@
-"""
-Black Box - offline ASR engines behind one interface.
 
-  faster-whisper  (default, laptop/edge box)  supports vocabulary biasing: initial_prompt and/or hotwords
-  sherpa-whisper  (sherpa-onnx, same engine family you'd ship on Android)  no prompt biasing -> rely on lexicon fix
-
-Both return a Transcript. Nothing here touches the network once models are on disk.
-"""
 from __future__ import annotations
 
 import time

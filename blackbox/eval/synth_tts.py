@@ -1,14 +1,4 @@
-"""
-Black Box - synthesize every gold dictation with offline eSpeak-NG (no recording needed).
 
-  pip install espeakng-loader soundfile numpy
-  python eval/synth_tts.py                 # -> eval/data/audio/tts/BB-001.wav ... (all 119 cases)
-  python eval/synth_tts.py --gap 2.0       # also writes eval/data/scene_tts.wav: all lines with pauses,
-                                           #   for testing live VAD segmentation with --file
-
-Robotic voice, so it's an easy ASR condition - treat it as a smoke test, not as real accuracy.
-Your own recordings (eval/record.py) are the numbers that count.
-"""
 from __future__ import annotations
 
 import argparse

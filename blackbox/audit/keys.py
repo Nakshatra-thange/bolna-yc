@@ -1,14 +1,4 @@
-"""
-Black Box - device keys.
 
-  signing key  Ed25519. Signs every chain entry. The PUBLIC key is pinned at the server / verifier;
-               the private key never leaves the device.
-  audio key    AES-256-GCM. Encrypts voice clips at rest (a stolen device leaks no patient audio).
-
-Hackathon storage: files with 0600 permissions in ~/.blackbox (or any folder you pass).
-Production: generate the signing key INSIDE Secure Enclave / Android Keystore / TPM so it can
-never be exported - that is what stops someone with the device from re-signing a forged history.
-"""
 from __future__ import annotations
 
 import hashlib

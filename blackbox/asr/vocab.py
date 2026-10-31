@@ -1,17 +1,4 @@
-"""
-Black Box - drug-vocabulary biasing.
 
-Layer 1 (before decoding, faster-whisper only):
-    initial_prompt()  an example-style "dictation" prompt built from protocol.json, so Whisper
-                      expects 'epi 1 mg IV' instead of 'happy one mg ivy'
-    hotwords()        the distinctive drug/brand names as faster-whisper hotwords
-
-Layer 2 (after decoding, any engine):
-    LexiconCorrector  repairs mis-heard clinical terms ("blue cannon" -> glucagon, "in trimester" ->
-                      intramuscular) using spelling + sound-alike similarity, ONLY where the context
-                      looks like a dose (a number/unit/route nearby). Every change is returned so the
-                      raw transcript and each correction can go into the audit chain.
-"""
 from __future__ import annotations
 
 import re

@@ -1,16 +1,4 @@
-"""
-Black Box - live web demo (runs on the ambulance laptop, i.e. localhost; nothing leaves the machine).
 
-  python -m webdemo.app                                   # rules extractor, small.en-style ASR
-  python -m webdemo.app --model base                      # faster on slow laptops
-  python -m webdemo.app --llm-model models/qwen2.5-1.5b-instruct-q4_k_m.gguf
-  python -m webdemo.app --no-asr                          # typed / tap-a-phrase only (no speech model needed)
-  then open http://localhost:8001   (use localhost, NOT a LAN IP: browsers only allow the mic on localhost/https)
-
-It drives the SAME Pipeline as `python -m asr.live`: ASR -> lexicon fix -> extraction -> Guardian -> confirmations
--> signed audit chain. The page only records audio, sends it here, and draws what comes back.
-All pipeline work runs on ONE worker thread (SQLite connections are not shared across threads).
-"""
 from __future__ import annotations
 
 import argparse

@@ -1,20 +1,4 @@
-"""
-Black Box - live on-scene pipeline:  mic/file -> VAD clips -> offline ASR (biased) -> lexicon fix -> log
-Works with Wi-Fi off once the model is on disk.
 
-  python -m asr.live --mic --model small --bias prompt --extract
-  python -m asr.live --mic --extract --llm-model models/qwen2.5-1.5b-instruct-q4_k_m.gguf --speak
-  python -m asr.live --mic --extract --llm-backend ollama --llm-model qwen2.5:1.5b --speak
-  python -m asr.live --file eval/data/scene_tts.wav --extract                       # replay a recording
-  python -m asr.live --file scene.wav --backend sherpa-whisper --model-dir models/sherpa-onnx-whisper-small.en
-
-Low-confidence events are read back ("Confirm fentanyl 50 micrograms I V?"); the medic answers
-"confirm" / "haan" or "cancel" / "galat". Answers are logged as their own records.
-
-Writes runs/<incident>/clips/0001.wav ... and runs/<incident>/utterances.jsonl.
-Each line keeps raw_text AND the corrected text, every correction, and the clip's SHA-256:
-this is exactly what Phase 3 will sign into the audit chain.
-"""
 from __future__ import annotations
 
 import argparse

@@ -1,4 +1,4 @@
-"""AES-256-GCM helpers for encrypting audio clips at rest."""
+
 from __future__ import annotations
 
 import os

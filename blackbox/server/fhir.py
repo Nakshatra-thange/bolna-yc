@@ -1,12 +1,4 @@
-"""
-Black Box server - FHIR R4 export.
 
-Every clinical resource gets a Provenance whose signature IS the device's Ed25519 signature of the
-chain entry, and whose entity points at the entry hash: the hospital can trace any FHIR resource back
-to the exact signed entry (and the voice clip behind it).
-
-Codes: RxNorm (ingredient level) and SNOMED routes are best-effort for the hackathon - verify before production.
-"""
 from __future__ import annotations
 
 import json
