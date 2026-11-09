@@ -64,12 +64,21 @@ def main():
     ap.add_argument("--language", default="en", help="'en', 'hi', or 'auto' (test which suits Hinglish)")
     ap.add_argument("--beam-size", type=int, default=5, help="Whisper beam width (default: 5)")
     ap.add_argument("--conditions", nargs="*", help="subset of folders under eval/data/audio")
+    ap.add_argument("--tags", nargs="*", help="only score gold rows with any listed tag, e.g. --tags hinglish")
     ap.add_argument("--out", help="output jsonl (default eval/preds/asr_<engine>_<bias>[__<conditions>].jsonl)")
     a = ap.parse_args()
 
     gold = {json.loads(l)["id"]: json.loads(l) for l in open(ROOT / "eval" / "data" / "gold.jsonl", encoding="utf-8")}
     audio_root = ROOT / "eval" / "data" / "audio"
     plan = plan_conditions(audio_root, gold, a.conditions)
+    if a.tags:
+        tag_ids = {cid for cid, row in gold.items() if set(a.tags) & set(row.get("tags", []))}
+        if not tag_ids:
+            raise SystemExit(f"no gold rows match tags {a.tags}")
+        plan = {cond: [wav for wav in wavs if wav.stem in tag_ids] for cond, wavs in plan.items()}
+        empty = [cond for cond, wavs in plan.items() if not wavs]
+        if empty:
+            raise SystemExit(f"no audio clips for tags {a.tags} in conditions {empty}")
     print("plan: " + ", ".join(f"{c}={len(w)}" for c, w in plan.items()))
 
     lang = None if a.language == "auto" else a.language
@@ -79,6 +88,8 @@ def main():
            else f"sherpa-{Path(a.model_dir).name.replace('sherpa-onnx-whisper-', '')}_none")
     if a.conditions:  # a subset run must never overwrite the full-run file
         tag += "__" + "+".join(a.conditions)
+    if a.tags:
+        tag += "__tags-" + "+".join(a.tags)
     fixer = LexiconCorrector()
 
     out = Path(a.out) if a.out else ROOT / "eval" / "preds" / f"asr_{tag}.jsonl"
