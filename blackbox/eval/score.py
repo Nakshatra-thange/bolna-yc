@@ -192,10 +192,37 @@ def score_extraction(gold_rows, pred_rows, time_tol_s=60):
 
 # ------------------------------------------------------------------ ASR
 def _norm_words(s: str) -> list[str]:
-    s = words_to_numbers(s)
-    s = re.sub(r"[^\w\s.:]", " ", s)
+    """Clinical-text normalization for WER; aliases only, never drug-name repair."""
+    s = words_to_numbers(s.lower())
+    # Punctuation and spoken formatting variants are ignored for lexical scoring.
+    s = re.sub(r"\b(?:milligrams?|milligrammes?)\b", "mg", s)
+    s = re.sub(r"\b(?:migs?|mgs?)\b", "mg", s)
+    s = re.sub(r"\b(?:micrograms?|microgrammes?|mics?)\b", "mcg", s)
+    s = re.sub(r"\b(?:millilit(?:er|re)s?|milliliters?|millilitres?)\b", "ml", s)
+    s = re.sub(r"\b(?:joules?)\b", "j", s)
+    s = re.sub(r"\bintravenous\s+push\b", " ivp ", s)
+    s = re.sub(r"\b(?:intravenous|ivp)\b", "iv", s)
+    s = re.sub(r"\bintramuscular\b", " im ", s)
+    s = re.sub(r"\bintraosseous\b", " io ", s)
+    s = re.sub(r"\bsublingual\b", " sl ", s)
+    s = re.sub(r"\bnasal\b", " intranasal ", s)
+    s = re.sub(r"\bnebulized\b", " nebulised ", s)
+    s = re.sub(r"\b(?:nebulization|nebulisation|neb)\b", " nebulised ", s)
+    s = re.sub(r"\b(?:orally|per\s+os|by\s+mouth)\b", " po ", s)
+    s = re.sub(r"\b(?:cc|c\.c\.)\b", " ml", s)
+    s = re.sub(r"\b(?:mill(i)?g|m\.g\.)\b", "mg", s)
+    s = re.sub(r"\b(?:m\.c\.g\.|micro g)\b", "mcg", s)
+    s = re.sub(r"\b(?:millilitre|milliliter)\b", "ml", s)
     s = re.sub(r"(?<!\d)\.|\.(?!\d)", " ", s)
+    s = re.sub(r"[^\w.\s]", " ", s)
     return s.split()
+
+
+def _raw_words(s: str) -> list[str]:
+    """Literal lexical baseline: lowercase and remove punctuation, without alias/number folding."""
+    s = s.lower()
+    s = re.sub(r"(?<!\d)\.|\.(?!\d)", " ", s)
+    return re.sub(r"[^\w.\s]", " ", s).split()
 
 
 def edit_distance(a: list[str], b: list[str]) -> int:
@@ -248,7 +275,8 @@ SAFETY_FIELDS = ["drug", "dose", "unit", "route"]
 def score_asr(gold_rows, asr_rows, field="text"):
     """Returns (stats per condition, per-utterance detail rows)."""
     gold = {g["id"]: g for g in gold_rows}
-    stats = defaultdict(lambda: {"edits": 0, "ref_words": 0, "n": 0, "audio_s": 0.0, "proc_s": 0.0,
+    stats = defaultdict(lambda: {"edits": 0, "ref_words": 0, "raw_edits": 0, "raw_ref_words": 0,
+                                 "n": 0, "audio_s": 0.0, "proc_s": 0.0,
                                  **{f"{k}_{x}": 0 for k in SAFETY_FIELDS for x in ("hit", "n")}})
     detail = []
     for r in asr_rows:
@@ -258,6 +286,9 @@ def score_asr(gold_rows, asr_rows, field="text"):
         ref, hyp = _norm_words(g["text"]), _norm_words(hyp_text)
         e = edit_distance(ref, hyp)
         s["edits"] += e; s["ref_words"] += len(ref); s["n"] += 1
+        raw_ref, raw_hyp = _raw_words(g["text"]), _raw_words(hyp_text)
+        s["raw_edits"] += edit_distance(raw_ref, raw_hyp)
+        s["raw_ref_words"] += len(raw_ref)
         s["audio_s"] += r.get("audio_s", 0.0); s["proc_s"] += r.get("latency_s", 0.0)
         hyp_str, hyp_set = " ".join(hyp), set(hyp)
         missed = []

@@ -1,4 +1,11 @@
+"""
+Black Box - offline ASR engines behind one interface.
 
+  faster-whisper  (default, laptop/edge box)  supports vocabulary biasing: initial_prompt and/or hotwords
+  sherpa-whisper  (sherpa-onnx, same engine family you'd ship on Android)  no prompt biasing -> rely on lexicon fix
+
+Both return a Transcript. Nothing here touches the network once models are on disk.
+"""
 from __future__ import annotations
 
 import time
@@ -8,6 +15,7 @@ from typing import Literal, Optional
 
 import numpy as np
 
+from asr.antiloop import strip_repetition_loops
 from asr.vocab import hotwords, initial_prompt
 
 SR = 16000
@@ -51,6 +59,7 @@ class FasterWhisperEngine:
         self.bias, self.language, self.beam = bias, language, beam_size
         self.word_ts = word_timestamps
         self.name = f"faster-whisper:{model}:{bias}"
+        self.loops_stripped = 0              # how many transcripts needed the repetition safety net
 
     def transcribe(self, audio: np.ndarray) -> Transcript:
         t0 = time.perf_counter()
@@ -63,12 +72,19 @@ class FasterWhisperEngine:
             word_timestamps=self.word_ts,
             condition_on_previous_text=False,   # each clip independent: no hallucination carry-over
             vad_filter=False,                   # we already cut clips with our own VAD
-            temperature=0.0,                    # deterministic, no sampling fallback surprises
+            # A single temperature (0.0) DISABLES Whisper's retry-when-it-loops safety net and lets greedy decoding
+            # repeat "I'm sorry ..." until the token limit. A short ladder re-decodes only the clips that need it
+            # (compression ratio > 2.4 or very low log-prob) and stays deterministic for normal clips.
+            temperature=(0.0, 0.2, 0.4),
+            compression_ratio_threshold=2.4,
+            max_new_tokens=int(10 * len(audio) / SR) + 24,    # speech is ~3 tokens/s; hard cap so a loop can't run long
         )
         segs = list(segs)
         words = [Word(w.word.strip(), w.start, w.end, w.probability) for s in segs for w in (s.words or [])]
+        text, stripped = strip_repetition_loops(" ".join(s.text.strip() for s in segs).strip())
+        self.loops_stripped += int(stripped)
         return Transcript(
-            text=" ".join(s.text.strip() for s in segs).strip(),
+            text=text,
             words=words,
             avg_logprob=float(np.mean([s.avg_logprob for s in segs])) if segs else None,
             no_speech_prob=float(np.max([s.no_speech_prob for s in segs])) if segs else None,

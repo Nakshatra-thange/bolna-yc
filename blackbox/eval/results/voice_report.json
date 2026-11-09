@@ -1,0 +1,91 @@
+{
+  "label": "rules only",
+  "extraction": {
+    "ALL": {
+      "n": 119,
+      "headline_f1": 0.9731543624161073,
+      "event_f1": 0.9583333333333334,
+      "exact": 0.8823529411764706
+    },
+    "english": {
+      "n": 90,
+      "headline_f1": 0.9756838905775077,
+      "event_f1": 0.9666666666666667,
+      "exact": 0.8777777777777778
+    },
+    "hinglish": {
+      "n": 29,
+      "headline_f1": 0.9661016949152542,
+      "event_f1": 0.9333333333333333,
+      "exact": 0.896551724137931
+    },
+    "hard_heldout": {
+      "n": 30,
+      "headline_f1": 0.8947368421052632,
+      "event_f1": 0.8333333333333334,
+      "exact": 0.5333333333333333
+    },
+    "brand_name": {
+      "n": 7,
+      "headline_f1": 1.0,
+      "event_f1": 1.0,
+      "exact": 1.0
+    },
+    "numbers_colloquial": {
+      "n": 17,
+      "headline_f1": 1.0,
+      "event_f1": 1.0,
+      "exact": 1.0
+    },
+    "time_relative": {
+      "n": 13,
+      "headline_f1": 1.0,
+      "event_f1": 1.0,
+      "exact": 1.0
+    },
+    "intent_accuracy": 0.957983193277311,
+    "safety": {
+      "meds": 87,
+      "flagged": 26,
+      "wrong": 12,
+      "wrong_flagged": 10,
+      "unflagged": 2,
+      "unsupported": 0,
+      "meds_checked": 87
+    },
+    "errors_top": [
+      "('BB-091', 'route', 'IV', None)",
+      "('BB-094', 'route', 'IV', None)",
+      "('BB-095', 'dose', 25.0, None)",
+      "('BB-095', 'route', 'IV', None)",
+      "('BB-095', 'unit', 'g', None)",
+      "('BB-097', 'route', 'IN', None)",
+      "('BB-098', 'route', 'IV', None)",
+      "('BB-099', 'MISSED_EVENT', 'note', None)"
+    ]
+  },
+  "commands": {
+    "n": 38,
+    "accuracy": 0.868421052631579,
+    "false_confirm": 0,
+    "false_cancel": 0
+  },
+  "latency_text_stage": {
+    "p50_ms": 0.0,
+    "p95_ms": 0.0
+  },
+  "asr": {
+    "asr_fw-small_prompt__tts": {
+      "tts": {
+        "n": 119,
+        "raw_wer": 0.5238636363636363,
+        "wer": 0.3431372549019608,
+        "cer": 0.18067556952081698,
+        "drug_acc": 0.7380952380952381,
+        "dose_acc": 0.7738095238095238,
+        "rtf": 0.6848936946264902,
+        "runaway_rate": 0.0
+      }
+    }
+  }
+}

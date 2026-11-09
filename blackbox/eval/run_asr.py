@@ -62,6 +62,7 @@ def main():
     ap.add_argument("--model-dir", help="sherpa-onnx model folder")
     ap.add_argument("--bias", default="prompt", choices=["none", "prompt", "hotwords", "both"])
     ap.add_argument("--language", default="en", help="'en', 'hi', or 'auto' (test which suits Hinglish)")
+    ap.add_argument("--beam-size", type=int, default=5, help="Whisper beam width (default: 5)")
     ap.add_argument("--conditions", nargs="*", help="subset of folders under eval/data/audio")
     ap.add_argument("--out", help="output jsonl (default eval/preds/asr_<engine>_<bias>[__<conditions>].jsonl)")
     a = ap.parse_args()
@@ -72,7 +73,8 @@ def main():
     print("plan: " + ", ".join(f"{c}={len(w)}" for c, w in plan.items()))
 
     lang = None if a.language == "auto" else a.language
-    engine = make_engine(a.backend, model=a.model, model_dir=a.model_dir, bias=a.bias, language=lang)
+    engine = make_engine(a.backend, model=a.model, model_dir=a.model_dir, bias=a.bias,
+                         language=lang, beam_size=a.beam_size)
     tag = (f"fw-{a.model}_{a.bias}" if a.backend == "faster-whisper"
            else f"sherpa-{Path(a.model_dir).name.replace('sherpa-onnx-whisper-', '')}_none")
     if a.conditions:  # a subset run must never overwrite the full-run file
